@@ -12,19 +12,6 @@ const nextConfig = {
     }
     return config
   },
-  
-  // Add headers configuration for proper cookie handling
-  headers: async () => [
-    {
-      source: '/:path*',
-      headers: [
-        {
-          key: 'Set-Cookie',
-          value: 'SameSite=Lax; Secure'
-        }
-      ]
-    }
-  ]
 }
 
 export default nextConfig 

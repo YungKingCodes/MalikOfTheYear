@@ -99,37 +99,6 @@ export const authConfig: NextAuthConfig = {
     }
   } as any, // Type cast due to compatibility issues
 
-  // Configure cookies for proper PKCE handling
-  cookies: {
-    pkceCodeVerifier: {
-      name: "__Secure-authjs.pkce.code_verifier",
-      options: {
-        httpOnly: true,
-        sameSite: "lax",
-        path: "/",
-        secure: true
-      }
-    },
-    state: {
-      name: "__Secure-authjs.state",
-      options: {
-        httpOnly: true,
-        sameSite: "lax",
-        path: "/",
-        secure: true
-      }
-    },
-    csrfToken: {
-      name: "__Host-authjs.csrf-token",
-      options: {
-        httpOnly: true,
-        sameSite: "lax", 
-        path: "/",
-        secure: true
-      }
-    }
-  },
-  
   // Specify custom pages
   pages: {
     signIn: "/auth/login",
