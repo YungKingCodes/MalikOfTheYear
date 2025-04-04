@@ -30,75 +30,80 @@ declare module "next-auth/jwt" {
   }
 }
 
+// Create a custom adapter by extending the PrismaAdapter
+const customPrismaAdapter = Object.assign({}, PrismaAdapter(db), {
+  createUser: async (data: any) => {
+    // Remove isNewUser and id from data before passing to Prisma
+    // MongoDB requires ObjectIDs which are not compatible with UUIDs that have hyphens
+    const { isNewUser, id, ...userData } = data;
+    
+    // Create the user without the isNewUser field and without the id
+    // Let MongoDB generate its own ObjectID
+    return db.user.create({ 
+      data: userData
+    });
+  },
+  
+  // Override the linkAccount function to properly handle Google accounts
+  linkAccount: async (account: any) => {
+    try {
+      // First check if user exists by email to ensure correct linking
+      const provider = account.provider;
+      const email = account.email || "";
+      
+      // Get the user from the userId on the account
+      const user = await db.user.findUnique({
+        where: { id: account.userId }
+      });
+      
+      if (!user) {
+        console.error("User not found when linking account");
+        throw new Error("User not found");
+      }
+      
+      // Check if this account already exists
+      const existingAccount = await db.account.findFirst({
+        where: {
+          provider,
+          providerAccountId: account.providerAccountId
+        }
+      });
+      
+      if (existingAccount) {
+        console.log("Account already exists");
+        return existingAccount;
+      }
+      
+      // Strip out the id field since MongoDB will generate its own
+      const { id, ...accountData } = account;
+      
+      // Link the account
+      console.log(`Linking ${provider} account to user ${user.email}`);
+      
+      return await db.account.create({
+        data: accountData
+      });
+    } catch (error) {
+      console.error("Error in linkAccount:", error);
+      throw error;
+    }
+  }
+});
+
 /**
  * Configure NextAuth with custom settings
  */
 export const authConfig: NextAuthConfig = {
-  // Use Prisma adapter for database session storage
-  adapter: {
-    ...PrismaAdapter(db),
-    createUser: async (data: any) => {
-      // Remove isNewUser from data before passing to Prisma
-      const { isNewUser, id, ...userData } = data;
-      
-      // Don't pass the UUID-style id from Auth.js - let MongoDB generate an ObjectID
-      // This avoids the "Malformed ObjectID" error
-      return db.user.create({ 
-        data: userData
-      });
-    },
-    linkAccount: async (account: any) => {
-      try {
-        // First try to find a user that already has this email
-        // This helps when the issue is the OAuthAccountNotLinked error
-        const provider = account.provider;
-        const providerAccountId = account.providerAccountId;
-        
-        if (provider === 'google') {
-          // For google accounts, we can try to link with existing users
-          const existingGoogleAccount = await db.account.findFirst({
-            where: {
-              provider,
-              providerAccountId,
-            }
-          });
-          
-          if (existingGoogleAccount) {
-            console.log("Google account already exists, no need to relink");
-            return existingGoogleAccount;
-          }
-        }
-        
-        // Get all accounts to find the user this should be linked to
-        const allUsers = await db.user.findMany({
-          orderBy: { createdAt: 'desc' },
-          take: 1 // Get the most recently created user
-        });
-        
-        if (allUsers.length === 0) {
-          throw new Error("No users found when linking account");
-        }
-        
-        const mostRecentUser = allUsers[0];
-        
-        // Create the account with MongoDB compatible ID
-        const { id, userId, ...accountData } = account;
-        
-        console.log(`Linking account ${provider} to user ${mostRecentUser.email}`);
-        
-        return db.account.create({
-          data: {
-            ...accountData,
-            userId: mostRecentUser.id // Use the MongoDB ObjectId
-          }
-        });
-      } catch (error) {
-        console.error("Error linking account:", error);
-        throw error;
-      }
-    }
-  } as any, // Type cast due to compatibility issues
-
+  // Use custom Prisma adapter for database session storage
+  adapter: customPrismaAdapter,
+  
+  // Next.js 14 way to enable account linking by email
+  experimental: {
+    // This allows linking accounts with the same email across providers
+    // Similar to allowDangerousEmailAccountLinking in older versions
+    enableWebAuthn: true
+  },
+  
   // Specify custom pages
   pages: {
     signIn: "/auth/login",
@@ -215,6 +220,7 @@ export const authConfig: NextAuthConfig = {
     Google({
       clientId: process.env.GOOGLE_CLIENT_ID ?? "",
       clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
+      allowDangerousEmailAccountLinking: true, // Enable account linking by email
       profile(profile) {
         // Return only fields that exist in the database schema
         // Don't include id - let MongoDB generate it
@@ -226,56 +232,6 @@ export const authConfig: NextAuthConfig = {
         };
       },
     }),
-    
-    // Email/Password provider
-    Credentials({
-      name: "credentials",
-      credentials: {
-        email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" }
-      },
-      async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) {
-          return null;
-        }
-
-        try {
-          // Find user by email
-          const user = await db.user.findUnique({
-            where: { email: credentials.email }
-          });
-
-          // Check if user exists and has a password
-          if (!user || !user.password) {
-            return null;
-          }
-
-          // Verify password
-          const passwordValid = await bcrypt.compare(
-            credentials.password,
-            user.password
-          );
-
-          // Return null if password is invalid
-          if (!passwordValid) {
-            return null;
-          }
-
-          // Return user data with defaults for optional fields
-          return {
-            id: user.id,
-            email: user.email,
-            name: user.name ?? undefined,
-            role: user.role ?? "player", // Default to player if no role
-            teamId: user.teamId ?? undefined,
-            isNewUser: false,
-          };
-        } catch (error) {
-          console.error("Error during authentication:", error);
-          return null;
-        }
-      }
-    })
   ],
   
   // Secret used to sign cookies

@@ -1,5 +1,5 @@
 import type { Metadata } from "next"
-import { RegisterForm } from "@/components/register-form"
+import { redirect } from "next/navigation"
 
 export const metadata: Metadata = {
   title: "Register | Malik of The Year",
@@ -7,9 +7,6 @@ export const metadata: Metadata = {
 }
 
 export default function RegisterPage() {
-  return (
-    <div className="container flex items-center justify-center min-h-[calc(100vh-4rem)] py-12 animate-in fade-in-50 duration-500">
-      <RegisterForm />
-    </div>
-  )
+  // Redirect to login page since we only support Google sign-in now
+  redirect("/auth/login")
 } 

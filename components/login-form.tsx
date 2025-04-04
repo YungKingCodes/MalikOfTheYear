@@ -4,11 +4,8 @@ import React, { useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { signIn } from "next-auth/react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Separator } from "@/components/ui/separator"
 import Link from "next/link"
 
 // Types for props
@@ -17,11 +14,8 @@ interface LoginFormProps {
 }
 
 export function LoginForm({ searchParams }: LoginFormProps) {
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
-  const [showLinkAccount, setShowLinkAccount] = useState(false)
   
   const router = useRouter()
   const queryParams = useSearchParams()
@@ -44,71 +38,13 @@ export function LoginForm({ searchParams }: LoginFormProps) {
   // Set initial error message from URL
   React.useEffect(() => {
     if (errorParam) {
-      if (errorParam === "CredentialsSignin") {
-        setError("Invalid email or password")
-      } else if (errorParam === "OAuthAccountNotLinked") {
-        setError("Email already used with a different sign-in method. You can either login with your existing method or link accounts.")
-        setShowLinkAccount(true)
+      if (errorParam === "OAuthAccountNotLinked") {
+        setError("Email already used with a different sign-in method. Please contact support for assistance.")
       } else {
         setError(`Authentication error: ${errorParam}`)
       }
     }
   }, [errorParam])
-  
-  // New function to handle login with email and password
-  const handleEmailLogin = async () => {
-    setLoading(true)
-    try {
-      const result = await signIn("credentials", {
-        email,
-        password,
-        redirect: false,
-      })
-      
-      if (result?.error) {
-        setError(
-          result.error === "CredentialsSignin" 
-            ? "Invalid email or password" 
-            : result.error
-        )
-        setLoading(false)
-        return
-      }
-      
-      // Success - redirect
-      router.push(getReturnTo())
-    } catch (err) {
-      setError("An error occurred during login")
-      console.error(err)
-      setLoading(false)
-    }
-  }
-  
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError("")
-    await handleEmailLogin()
-  }
-  
-  // Method to retry Google login with forced account linking
-  const handleForceGoogleLink = async () => {
-    if (!email) {
-      setError("Please enter your email address to link accounts")
-      return
-    }
-    
-    setLoading(true)
-    try {
-      // Use callbackUrl with special parameter to indicate account linking
-      await signIn("google", {
-        callbackUrl: `${window.location.origin}/api/auth/link-account?email=${encodeURIComponent(email)}`,
-      })
-    } catch (err) {
-      setError("An error occurred during account linking")
-      console.error(err)
-      setLoading(false)
-    }
-  }
   
   const handleGoogleLogin = async () => {
     setLoading(true)
@@ -129,74 +65,20 @@ export function LoginForm({ searchParams }: LoginFormProps) {
     <Card className="w-full max-w-md mx-auto animate-in fade-in-50 duration-500">
       <CardHeader>
         <CardTitle>Sign In</CardTitle>
-        <CardDescription>Enter your credentials to access your account</CardDescription>
+        <CardDescription>Sign in with your Google account</CardDescription>
       </CardHeader>
       
       <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="space-y-4">
           {error && (
             <Alert variant="destructive">
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
           
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              placeholder="Enter your email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
-          </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
-            <Input
-              id="password"
-              type="password"
-              placeholder="Enter your password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-          </div>
-          
-          <Button 
-            type="submit" 
-            className="w-full bg-primary hover:bg-primary/90 shadow-md" 
-            disabled={loading}
-          >
-            {loading ? "Signing in..." : "Sign In"}
-          </Button>
-          
-          {showLinkAccount && (
-            <div className="mt-4">
-              <Alert>
-                <AlertDescription>
-                  It looks like you're trying to use Google to login to an account that was created with email/password.
-                  <ul className="list-disc pl-5 mt-2">
-                    <li>Either sign in above with your email/password</li>
-                    <li>Or clear your browser data and try Google again (if you want to start fresh)</li>
-                  </ul>
-                </AlertDescription>
-              </Alert>
-            </div>
-          )}
-          
-          <div className="relative my-4">
-            <Separator />
-            <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-card px-2 text-xs text-muted-foreground">
-              OR
-            </span>
-          </div>
-          
           <Button 
             type="button" 
             className="w-full" 
-            variant="outline" 
             onClick={handleGoogleLogin}
             disabled={loading}
           >
@@ -223,21 +105,18 @@ export function LoginForm({ searchParams }: LoginFormProps) {
           
           <div className="text-center text-sm text-muted-foreground">
             <p>
-              Sign in with Google to create an account automatically. All users begin as players.
+              Sign in with Google to access your account. All users begin as players.
             </p>
             <p className="mt-1">
               Team captains are determined by team voting during competitions.
             </p>
           </div>
-        </form>
+        </div>
       </CardContent>
       
-      <CardFooter className="flex flex-col space-y-2">
-        <p className="text-sm text-center text-muted-foreground">
-          Don't have an account?{" "}
-          <Link href="/auth/register" className="text-primary hover:underline">
-            Sign up
-          </Link>
+      <CardFooter className="flex justify-center">
+        <p className="text-sm text-muted-foreground">
+          Need help? Contact your system administrator for assistance.
         </p>
       </CardFooter>
     </Card>
