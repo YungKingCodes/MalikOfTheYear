@@ -12,6 +12,13 @@ import { useSession } from "next-auth/react"
 import { getUsers, getUnassignedPlayers, getTeamCaptains, getTitledPlayers } from "@/lib/data"
 import { PlayerDetailsModal } from "@/components/modals/player-details-modal"
 import { canViewPlayerScores } from "@/lib/auth-utils"
+import { AuthLoadingOverlay } from "@/components/ui/auth-loading-overlay"
+import { PlayersSkeleton } from "@/components/loading-skeletons/players-skeleton"
+
+// Function to render loading state
+function LoadingState() {
+  return <PlayersSkeleton />
+}
 
 export default function PlayersPage() {
   const [players, setPlayers] = useState<any[]>([])
@@ -65,7 +72,7 @@ export default function PlayersPage() {
   }
 
   if (loading) {
-    return <div className="py-8 text-center">Loading players data...</div>
+    return <LoadingState />
   }
 
   if (error) {
@@ -469,11 +476,11 @@ export default function PlayersPage() {
                               ? "Mountain Goats"
                               : player.teamId === "team2"
                                 ? "Royal Rams"
-                                : player.teamId === "team3"
-                                  ? "Athletic Antelopes"
-                                  : player.teamId === "team4"
-                                    ? "Speed Sheep"
-                                    : "Unassigned"}
+                              : player.teamId === "team3"
+                                ? "Athletic Antelopes"
+                                : player.teamId === "team4"
+                                  ? "Speed Sheep"
+                                  : "Unassigned"}
                           </div>
 
                           <div className="text-xs text-muted-foreground">Titles:</div>

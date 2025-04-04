@@ -1,68 +1,43 @@
 "use client"
 
 import { useSession } from "next-auth/react"
-import { useRouter } from "next/navigation"
 import { useEffect } from "react"
-
-type UserRole = "admin" | "captain" | "player" | "guest"
+import { useRouter } from "next/navigation"
+import { AuthLoadingOverlay } from "@/components/ui/auth-loading-overlay"
 
 interface ProtectedRouteProps {
   children: React.ReactNode
-  allowedRoles?: UserRole[]
-  teamId?: string // If specified, check if user belongs to this team
+  fallback?: React.ReactNode
 }
 
 export function ProtectedRoute({ 
-  children, 
-  allowedRoles = ["admin", "captain", "player"],
-  teamId
+  children,
+  fallback
 }: ProtectedRouteProps) {
   const { data: session, status } = useSession()
   const router = useRouter()
-  const isLoading = status === "loading"
   
   useEffect(() => {
-    // If authentication is still loading, do nothing yet
-    if (isLoading) return
-    
-    // If not authenticated, redirect to login
-    if (status !== "authenticated") {
-      router.push("/auth/login")
-      return
-    }
-    
-    // If role restriction is in place
-    if (allowedRoles.length > 0) {
-      const userRole = session?.user?.role || "guest"
+    // If the user is not authenticated and not in the loading state, redirect to login
+    if (status === "unauthenticated") {
+      console.log("[ProtectedRoute] User is not authenticated, redirecting to login")
       
-      if (!allowedRoles.includes(userRole as UserRole)) {
-        router.push("/unauthorized")
-        return
-      }
+      // Get the current URL to redirect back after login
+      const returnToPath = window.location.pathname
+      router.push(`/auth/login?return_to=${encodeURIComponent(returnToPath)}`)
     }
-    
-    // If team restriction is in place and user is not admin
-    if (teamId && session?.user?.role !== "admin") {
-      // If user is a team captain or player, they must belong to the specified team
-      if (session?.user?.teamId !== teamId) {
-        router.push("/unauthorized")
-        return
-      }
-    }
-  }, [isLoading, router, status, session, allowedRoles, teamId])
+  }, [status, router])
   
-  // Show loading while authentication is being checked
-  if (isLoading) {
-    return <div className="flex justify-center items-center min-h-[60vh]">
-      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
-    </div>
+  // While loading or redirecting, show the loading component
+  if (status === "loading" || status === "unauthenticated") {
+    return (
+      <>
+        <AuthLoadingOverlay className="" />
+        {fallback}
+      </>
+    )
   }
   
-  // If authentication passed and all checks are successful, render the protected content
-  if (status === "authenticated") {
-    return <>{children}</>
-  }
-  
-  // For any other case, show nothing while redirecting
-  return null
+  // If authenticated, show the children
+  return <>{children}</>
 } 

@@ -48,12 +48,27 @@ export const authConfig: NextAuthConfig = {
       });
     },
     linkAccount: async (account: any) => {
-      // We need to handle two issues:
-      // 1. The account.userId is in UUID format but MongoDB needs ObjectId
-      // 2. We can't directly use the UUID format from Auth.js
-      
-      // Let's create a new account entry with proper formatting
       try {
+        // First try to find a user that already has this email
+        // This helps when the issue is the OAuthAccountNotLinked error
+        const provider = account.provider;
+        const providerAccountId = account.providerAccountId;
+        
+        if (provider === 'google') {
+          // For google accounts, we can try to link with existing users
+          const existingGoogleAccount = await db.account.findFirst({
+            where: {
+              provider,
+              providerAccountId,
+            }
+          });
+          
+          if (existingGoogleAccount) {
+            console.log("Google account already exists, no need to relink");
+            return existingGoogleAccount;
+          }
+        }
+        
         // Get all accounts to find the user this should be linked to
         const allUsers = await db.user.findMany({
           orderBy: { createdAt: 'desc' },
@@ -68,6 +83,8 @@ export const authConfig: NextAuthConfig = {
         
         // Create the account with MongoDB compatible ID
         const { id, userId, ...accountData } = account;
+        
+        console.log(`Linking account ${provider} to user ${mostRecentUser.email}`);
         
         return db.account.create({
           data: {

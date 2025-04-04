@@ -21,6 +21,7 @@ export function LoginForm({ searchParams }: LoginFormProps) {
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
+  const [showLinkAccount, setShowLinkAccount] = useState(false)
   
   const router = useRouter()
   const queryParams = useSearchParams()
@@ -46,18 +47,17 @@ export function LoginForm({ searchParams }: LoginFormProps) {
       if (errorParam === "CredentialsSignin") {
         setError("Invalid email or password")
       } else if (errorParam === "OAuthAccountNotLinked") {
-        setError("Email already used with a different provider. Try another sign-in method.")
+        setError("Email already used with a different sign-in method. You can either login with your existing method or link accounts.")
+        setShowLinkAccount(true)
       } else {
         setError(`Authentication error: ${errorParam}`)
       }
     }
   }, [errorParam])
   
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError("")
+  // New function to handle login with email and password
+  const handleEmailLogin = async () => {
     setLoading(true)
-    
     try {
       const result = await signIn("credentials", {
         email,
@@ -79,6 +79,32 @@ export function LoginForm({ searchParams }: LoginFormProps) {
       router.push(getReturnTo())
     } catch (err) {
       setError("An error occurred during login")
+      console.error(err)
+      setLoading(false)
+    }
+  }
+  
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError("")
+    await handleEmailLogin()
+  }
+  
+  // Method to retry Google login with forced account linking
+  const handleForceGoogleLink = async () => {
+    if (!email) {
+      setError("Please enter your email address to link accounts")
+      return
+    }
+    
+    setLoading(true)
+    try {
+      // Use callbackUrl with special parameter to indicate account linking
+      await signIn("google", {
+        callbackUrl: `${window.location.origin}/api/auth/link-account?email=${encodeURIComponent(email)}`,
+      })
+    } catch (err) {
+      setError("An error occurred during account linking")
       console.error(err)
       setLoading(false)
     }
@@ -145,6 +171,20 @@ export function LoginForm({ searchParams }: LoginFormProps) {
           >
             {loading ? "Signing in..." : "Sign In"}
           </Button>
+          
+          {showLinkAccount && (
+            <div className="mt-4">
+              <Alert>
+                <AlertDescription>
+                  It looks like you're trying to use Google to login to an account that was created with email/password.
+                  <ul className="list-disc pl-5 mt-2">
+                    <li>Either sign in above with your email/password</li>
+                    <li>Or clear your browser data and try Google again (if you want to start fresh)</li>
+                  </ul>
+                </AlertDescription>
+              </Alert>
+            </div>
+          )}
           
           <div className="relative my-4">
             <Separator />

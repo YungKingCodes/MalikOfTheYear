@@ -27,6 +27,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
 import { GameDetailsModal } from "@/components/modals/game-details-modal"
+import { AuthLoadingOverlay } from "@/components/ui/auth-loading-overlay"
+import { GamesSkeleton } from "@/components/loading-skeletons/games-skeleton"
 
 export default function GamesPageClient() {
   const [games, setGames] = useState<any[]>([])
@@ -115,12 +117,10 @@ export default function GamesPageClient() {
 
   if (loading || isPending || status === "loading") {
     return (
-      <div className="flex flex-col gap-8 p-4 md:p-8 animate-pulse">
-        <div className="h-8 w-48 bg-muted rounded-md mb-2"></div>
-        <div className="h-4 w-72 bg-muted rounded-md mb-6"></div>
-        <div className="h-10 w-full bg-muted rounded-md mb-4"></div>
-        <div className="h-64 w-full bg-muted rounded-md"></div>
-      </div>
+      <>
+        <AuthLoadingOverlay className="" />
+        <GamesSkeleton />
+      </>
     )
   }
 

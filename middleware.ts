@@ -7,32 +7,46 @@ const protectedRoutes = [
   "/dashboard",
   "/player-profile",
   "/profile",
-  "/games",
   "/teams",
-  "/feedback"
+  "/feedback",
+  "/players",
+  "/games",
+  "/competitions"
 ]
 
 // Define admin-only routes
 const adminRoutes = ["/admin"]
 
-// Routes that are accessible without completing registration
+// Routes that are accessible without authentication
 const publicRoutes = [
   "/",
   "/auth/login",
   "/auth/register",
   "/auth/error",
   "/auth/complete-profile",
+  "/api/auth/signin",
+  "/api/auth/signout",
+  "/api/auth/session",
+  "/api/auth/callback",
+  "/api/auth/providers",
+  "/api/auth/csrf",
   "/api/auth/complete-profile"
 ]
 
 // Middleware function that runs on every request
 export async function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl
+  const { pathname, searchParams } = request.nextUrl
+  
+  // Special handling for the OAuthAccountNotLinked error
+  // When this error occurs, we want to provide better help for the user
+  if (pathname === "/auth/login" && searchParams.get("error") === "OAuthAccountNotLinked") {
+    console.log("Detected OAuthAccountNotLinked error, providing guidance");
+    // We'll handle this in the client component with specific instructions
+  }
   
   // Skip middleware for public routes and static files
   if (publicRoutes.some(route => pathname.startsWith(route)) || 
       pathname.includes('/_next') || 
-      pathname.includes('/api/auth') ||
       pathname.match(/\.(ico|png|jpg|jpeg|svg|css|js)$/)) {
     return NextResponse.next()
   }
@@ -45,6 +59,9 @@ export async function middleware(request: NextRequest) {
   
   // No token means the user is not authenticated
   if (!token) {
+    // Debug log to confirm middleware is working
+    console.log(`[Middleware] Redirecting unauthenticated user from ${pathname} to login`);
+    
     // Get the current URL to redirect back after login
     const redirectUrl = new URL("/auth/login", request.url)
     redirectUrl.searchParams.set("return_to", pathname)

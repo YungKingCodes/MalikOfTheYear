@@ -1,88 +1,89 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { Suspense } from "react";
 
-const ERROR_MESSAGES: Record<string, string> = {
-  Configuration: "There is a problem with the server configuration.",
-  AccessDenied: "You do not have permission to sign in.",
-  Verification: "The verification link may have been used or is no longer valid.",
-  OAuthSignin: "Could not initiate OAuth sign-in.",
-  OAuthCallback: "Error occurred during OAuth callback.",
-  OAuthCreateAccount: "Could not create OAuth account.",
-  EmailCreateAccount: "Could not create email account.",
-  Callback: "Error occurred during callback processing.",
-  OAuthAccountNotLinked: "This email is already associated with another account.",
-  EmailSignin: "The e-mail could not be sent.",
-  CredentialsSignin: "Sign in failed. Check your credentials.",
-  SessionRequired: "Please sign in to access this page.",
-  Default: "An unknown error occurred during authentication.",
-};
-
-function ErrorContent() {
-  const searchParams = useSearchParams();
-  const errorParam = searchParams.get("error");
-  const errorMessage = errorParam 
-    ? (ERROR_MESSAGES[errorParam] || ERROR_MESSAGES.Default) 
-    : ERROR_MESSAGES.Default;
-
-  return (
-    <div className="container flex items-center justify-center min-h-[calc(100vh-4rem)] py-12">
-      <Card className="w-full max-w-md mx-auto">
-        <CardHeader>
-          <CardTitle>Authentication Error</CardTitle>
-          <CardDescription>There was a problem signing you in</CardDescription>
-        </CardHeader>
-        
-        <CardContent>
-          <Alert variant="destructive" className="mb-4">
-            <AlertDescription>
-              {errorMessage}
-            </AlertDescription>
-          </Alert>
-          
-          <div className="space-y-4 text-sm">
-            <h3 className="font-medium">Troubleshooting:</h3>
-            <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
-              <li>Check your credentials and try again</li>
-              <li>Make sure you're using the correct social account</li>
-              <li>If using Google, ensure you've granted the necessary permissions</li>
-              <li>Clear your browser cookies and try again</li>
-              <li>Contact support if this issue persists</li>
-            </ul>
-          </div>
-        </CardContent>
-        
-        <CardFooter className="flex justify-between">
-          <Button variant="outline" asChild>
-            <Link href="/">Back to Home</Link>
-          </Button>
-          <Button asChild>
-            <Link href="/auth/login">Try Again</Link>
-          </Button>
-        </CardFooter>
-      </Card>
-    </div>
+/**
+ * Auth error page component
+ * Handles different authentication error scenarios with user-friendly guidance
+ */
+export default function AuthErrorPage({
+  searchParams,
+}: {
+  searchParams?: { [key: string]: string | string[] | undefined }
+}) {
+  // Extract the error code from the URL
+  const errorType = searchParams?.error as string;
+  
+  // Default error message and title
+  let title = "Authentication Error";
+  let description = "An error occurred during authentication.";
+  let action = (
+    <>
+      <Button variant="outline" asChild className="mr-2">
+        <Link href="/">Back to Home</Link>
+      </Button>
+      <Button asChild>
+        <Link href="/auth/login">Back to Login</Link>
+      </Button>
+    </>
   );
-}
-
-export default function AuthErrorPage() {
+  
+  // Custom error messages based on error type
+  if (errorType === "OAuthAccountNotLinked") {
+    title = "Account Already Exists";
+    description = "An account with this email already exists but with a different sign-in method. If this is your account, please sign in using your existing method (email/password) first.";
+    action = (
+      <>
+        <Button variant="outline" asChild className="mr-2">
+          <Link href="/">Back to Home</Link>
+        </Button>
+        <Button asChild>
+          <Link href="/auth/login">Sign in with Email</Link>
+        </Button>
+      </>
+    );
+  } else if (errorType === "AccessDenied") {
+    title = "Access Denied";
+    description = "You don't have permission to access this resource.";
+  } else if (errorType === "Verification") {
+    title = "Verification Failed";
+    description = "The verification link is invalid or has expired.";
+  } else if (errorType === "Configuration") {
+    title = "Server Configuration Error";
+    description = "There is an issue with the server configuration. Please contact support.";
+  }
+  
   return (
-    <Suspense fallback={
+    <Suspense fallback={<div>Loading...</div>}>
       <div className="container flex items-center justify-center min-h-[calc(100vh-4rem)] py-12">
         <Card className="w-full max-w-md mx-auto">
-          <CardHeader>
-            <CardTitle>Loading...</CardTitle>
-            <CardDescription>Please wait</CardDescription>
+          <CardHeader className="space-y-1">
+            <div className="flex items-center justify-center mb-4">
+              <div className="p-3 rounded-full bg-yellow-100 text-yellow-600">
+                <AlertTriangle size={24} />
+              </div>
+            </div>
+            <CardTitle className="text-center">{title}</CardTitle>
+            <CardDescription className="text-center">
+              {description}
+            </CardDescription>
           </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="text-sm text-muted-foreground">
+                <p>Error code: {errorType || "unknown"}</p>
+              </div>
+            </div>
+          </CardContent>
+          <CardFooter className="flex justify-center">
+            {action}
+          </CardFooter>
         </Card>
       </div>
-    }>
-      <ErrorContent />
     </Suspense>
   );
 } 

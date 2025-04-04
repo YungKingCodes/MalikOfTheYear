@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import { Suspense } from "react"
 import GamesPageClient from "./GamesPageClient"
 import { GamesSkeleton } from "@/components/loading-skeletons/games-skeleton"
+import { ProtectedRoute } from "@/components/protected-route"
 
 export const metadata: Metadata = {
   title: "Games | Malik of The Year",
@@ -11,7 +12,9 @@ export const metadata: Metadata = {
 export default function GamesPage() {
   return (
     <Suspense fallback={<GamesSkeleton />}>
-      <GamesPageClient />
+      <ProtectedRoute fallback={<GamesSkeleton />}>
+        <GamesPageClient />
+      </ProtectedRoute>
     </Suspense>
   )
 }

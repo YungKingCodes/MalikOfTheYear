@@ -89,6 +89,18 @@ export function SiteHeader() {
               <span className="font-bold text-secondary">Malik of The Year</span>
             </Link>
             <div className="grid gap-2 py-6">
+              {user && (
+                <Link
+                  href="/dashboard"
+                  className={cn(
+                    "flex w-full items-center py-2 text-lg font-semibold",
+                    pathname === "/dashboard" ? "text-primary" : "text-foreground/60",
+                  )}
+                  onClick={() => setOpen(false)}
+                >
+                  Dashboard
+                </Link>
+              )}
               <Link
                 href="/competitions"
                 className={cn(

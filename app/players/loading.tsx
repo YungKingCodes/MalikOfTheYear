@@ -1,4 +1,6 @@
+import { PlayersSkeleton } from "@/components/loading-skeletons/players-skeleton"
+
 export default function Loading() {
-  return null
+  return <PlayersSkeleton />
 }
 
