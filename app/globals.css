@@ -1,0 +1,248 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 210 40% 98%;
+    --foreground: 222 47% 11%;
+
+    /* Vibrant primary color - Energetic Crimson */
+    --primary: 350 89% 50%;
+    --primary-foreground: 0 0% 100%;
+
+    /* Gold secondary color */
+    --secondary: 45 93% 47%;
+    --secondary-foreground: 222 47% 11%;
+
+    /* Accent color - Deep Crimson */
+    --accent: 350 89% 40%;
+    --accent-foreground: 0 0% 100%;
+
+    /* Muted backgrounds */
+    --muted: 210 40% 93%;
+    --muted-foreground: 215 25% 40%;
+
+    /* Card and UI elements */
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --ring: 350 89% 50%;
+
+    --radius: 0.75rem;
+  }
+
+  .dark {
+    --background: 222 47% 11%;
+    --foreground: 210 40% 98%;
+
+    --primary: 350 89% 50%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 45 93% 47%;
+    --secondary-foreground: 222 47% 11%;
+
+    --accent: 350 89% 40%;
+    --accent-foreground: 0 0% 100%;
+
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 20% 65%;
+
+    --card: 222 47% 11%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222 47% 11%;
+    --popover-foreground: 210 40% 98%;
+
+    --border: 217 33% 17%;
+    --input: 217 33% 17%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --ring: 350 89% 50%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Custom styles for competition elements */
+.competition-card {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.competition-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 25px -5px rgba(var(--primary), 0.1), 0 8px 10px -6px rgba(var(--primary), 0.1);
+}
+
+.team-color-badge {
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.stat-improvement {
+  @apply text-secondary font-medium;
+}
+
+.stat-decline {
+  @apply text-destructive font-medium;
+}
+
+.trophy-card {
+  @apply border-2 border-secondary bg-secondary/10 transition-all duration-300;
+}
+
+.trophy-card:hover {
+  @apply bg-secondary/20;
+}
+
+/* Animation utilities */
+@layer utilities {
+  .animate-in {
+    animation-duration: 0.3s;
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    animation-fill-mode: both;
+  }
+
+  .fade-in {
+    animation-name: fade-in;
+  }
+
+  .fade-in-50 {
+    animation-name: fade-in-50;
+  }
+
+  .slide-in-from-left-4 {
+    animation-name: slide-in-from-left-4;
+  }
+
+  .slide-in-from-bottom-10 {
+    animation-name: slide-in-from-bottom-10;
+  }
+
+  .slide-in-from-right-4 {
+    animation-name: slide-in-from-right-4;
+  }
+  
+  .animate-progress-indeterminate {
+    animation: progress-indeterminate 1.5s ease-in-out infinite;
+  }
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes fade-in-50 {
+    from {
+      opacity: 0.5;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes slide-in-from-left-4 {
+    from {
+      transform: translateX(-1rem);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+
+  @keyframes slide-in-from-right-4 {
+    from {
+      transform: translateX(1rem);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+
+  @keyframes slide-in-from-bottom-10 {
+    from {
+      transform: translateY(2.5rem);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+
+  /* Page transition animations */
+  .page-transition-enter {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  .page-transition-enter-active {
+    opacity: 1;
+    transform: translateY(0);
+    transition: opacity 300ms, transform 300ms;
+  }
+
+  .page-transition-exit {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .page-transition-exit-active {
+    opacity: 0;
+    transform: translateY(-10px);
+    transition: opacity 300ms, transform 300ms;
+  }
+}
+
+@keyframes progress {
+  0% {
+    width: 0%;
+  }
+  100% {
+    width: 100%;
+  }
+}
+
+.animate-progress {
+  animation: progress 2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes progress-indeterminate {
+  0% {
+    transform: translateX(-100%);
+    width: 50%;
+  }
+  100% {
+    transform: translateX(200%);
+    width: 50%;
+  }
+}
+
