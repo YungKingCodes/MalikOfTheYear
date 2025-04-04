@@ -11,7 +11,8 @@
     "prisma:migrate": "prisma db push",
     "db:seed": "ts-node --compiler-options '{\"module\":\"CommonJS\"}' prisma/seed.ts",
     "verify:oauth": "node tools/verify-oauth-config.js",
-    "test:oauth-callback": "node tools/test-oauth-callback.js"
+    "test:oauth-callback": "node tools/test-oauth-callback.js",
+    "postinstall": "prisma generate"
   },
   "dependencies": {
     "@auth/core": "^0.38.0",
