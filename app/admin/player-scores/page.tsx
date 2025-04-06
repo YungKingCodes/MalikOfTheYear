@@ -1,25 +1,20 @@
-import { Metadata } from "next"
-import { notFound, redirect } from "next/navigation"
-import { auth } from "@/auth"
+"use client"
+
+import { redirect } from "next/navigation"
+import { useRouter } from "next/navigation"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Input } from "@/components/ui/input"
-import { db } from "@/lib/db"
 import { Separator } from "@/components/ui/separator"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { SearchIcon } from "lucide-react"
+import { SearchIcon, Loader2 } from "lucide-react"
 import { useState, useEffect } from "react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { getCompetitions } from "@/app/actions/competitions"
-import { Loader2 } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-
-export const metadata: Metadata = {
-  title: "Player Scores Dashboard",
-  description: "View all player scores for your competition",
-}
+import { useSession } from "next-auth/react"
 
 interface PlayerScore {
   id: string;
@@ -30,22 +25,32 @@ interface PlayerScore {
   finalScore: number;
 }
 
-export default async function AdminPlayerScoresPage() {
-  // Verify user is an admin
-  const session = await auth()
+export default function AdminPlayerScoresPage() {
+  const router = useRouter()
+  const { data: session, status } = useSession()
   
-  if (!session?.user) {
-    redirect("/login?callbackUrl=/admin/player-scores")
-  }
-  
-  if (session.user.role !== "admin") {
-    notFound()
-  }
-
+  // Client-side state
   const [scores, setScores] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [competitions, setCompetitions] = useState<any[]>([])
   const [selectedCompetition, setSelectedCompetition] = useState<string>("")
+
+  // Check authentication
+  useEffect(() => {
+    if (status === "loading") return
+    
+    if (!session?.user) {
+      router.push("/login?callbackUrl=/admin/player-scores")
+      return
+    }
+    
+    if (session.user.role !== "admin") {
+      router.push("/404")
+      return
+    }
+    
+    loadCompetitions()
+  }, [session, status, router])
 
   const loadCompetitions = async () => {
     try {
@@ -88,34 +93,34 @@ export default async function AdminPlayerScoresPage() {
     loadPlayerScores(value)
   }
 
-  useEffect(() => {
-    loadCompetitions()
-  }, [])
-
   // Process the data to calculate final scores
   const playerScores: PlayerScore[] = scores.map(user => {
     // Get all self scores for this user
-    const selfScores = userSelfScores.filter(score => score.userId === user.id)
+    const selfScores = scores.filter((score: any) => 
+      score.userId === user.id && score.type === 'self'
+    )
     
     // Calculate average self score
     let selfScoreAvg = 0
     if (selfScores.length > 0) {
-      const selfScoreSum = selfScores.reduce((sum, score) => {
+      const selfScoreSum = selfScores.reduce((sum: number, score: any) => {
         const scoreValues = Object.values(score.scores as Record<string, number>)
-        return sum + scoreValues.reduce((s, v) => s + v, 0) / scoreValues.length
+        return sum + scoreValues.reduce((s: number, v: number) => s + v, 0) / scoreValues.length
       }, 0)
       selfScoreAvg = selfScoreSum / selfScores.length
     }
     
     // Get all peer scores for this user
-    const peerScores = userPeerScores.filter(score => score.ratedId === user.id)
+    const peerScores = scores.filter((score: any) => 
+      score.ratedId === user.id && score.type === 'peer'
+    )
     
     // Calculate average peer score
     let peerScoreAvg = 0
     if (peerScores.length > 0) {
-      const peerScoreSum = peerScores.reduce((sum, score) => {
+      const peerScoreSum = peerScores.reduce((sum: number, score: any) => {
         const scoreValues = Object.values(score.scores as Record<string, number>)
-        return sum + scoreValues.reduce((s, v) => s + v, 0) / scoreValues.length
+        return sum + scoreValues.reduce((s: number, v: number) => s + v, 0) / scoreValues.length
       }, 0)
       peerScoreAvg = peerScoreSum / peerScores.length
     }
@@ -148,6 +153,16 @@ export default async function AdminPlayerScoresPage() {
       finalScore,
     }
   })
+
+  // If loading auth or redirecting, show loading state
+  if (status === "loading") {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin" />
+        <span className="ml-2">Loading...</span>
+      </div>
+    )
+  }
 
   return (
     <div className="container mx-auto py-6">
