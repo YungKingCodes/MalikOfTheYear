@@ -8,9 +8,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
-import { Search, Plus, Filter, ThumbsUp, Check, CloudRain } from "lucide-react"
+import { Search, Plus, Filter, ThumbsUp, Check, Calendar, AlertTriangle, CalendarX } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
-import { getGames } from "@/lib/data"
 import { useSession } from "next-auth/react"
 import {
   Dialog,
@@ -24,71 +23,146 @@ import {
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
+import { 
+  getGames, 
+  getSuggestedGames, 
+  assignGameToCompetition, 
+  assignTeamToGame, 
+  removeTeamFromGame 
+} from "@/app/actions/games"
+import { getGamesForDashboard } from "@/app/actions/dashboard-stats"
+import { useToast } from "@/components/ui/use-toast"
+import Link from "next/link"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { AssignPlayersModal } from "@/components/modals/assign-players-modal"
+import { LoadingSpinner } from "@/components/loading-skeletons/competition-detail-skeleton"
+
+interface GameParticipant {
+  teamId: string
+  score?: number | null
+  rank?: number | null
+  status: string
+  team: {
+    id: string
+    name: string
+  }
+}
 
 interface Game {
-  _id: string
+  id: string
   name: string
   type: string
-  date?: string
-  team1?: string
-  team2?: string
-  score1?: number
-  score2?: number
+  date?: Date | string | null
+  description: string
   status: string
-  location?: string
+  location?: string | null
   pointsValue?: number
   competitionId?: string
   votes?: number
   suggested?: boolean
   backupPlan?: string
+  difficulty?: string
+  winCondition?: string
+  materialsNeeded?: string
+  cost?: number
+  participants?: GameParticipant[]
+  category?: string
+  duration?: number
+  playerCount?: number
+  competition?: {
+    name: string
+    id: string
+    year: number
+  } | null
+  maxTeams?: number
 }
 
-export function GamesTab() {
+interface SuggestedGame {
+  id: string
+  name: string
+  type: string
+  description: string
+  category: string
+  votes: number
+  hasVoted?: boolean
+  suggestedBy: {
+    id: string
+    name: string | null
+  }
+  userVotes?: any[]
+}
+
+export function GamesTab({ selectedCompetitionId }: { selectedCompetitionId?: string }) {
   const [games, setGames] = useState<Game[]>([])
-  const [suggestedGames, setSuggestedGames] = useState<Game[]>([])
+  const [suggestedGames, setSuggestedGames] = useState<SuggestedGame[]>([])
+  const [upcomingGames, setUpcomingGames] = useState<Game[]>([])
+  const [recentGames, setRecentGames] = useState<Game[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const { data: session } = useSession()
   const user = session?.user
   const isAdmin = user?.role === "admin"
+  const isCaptain = user?.role === "captain"
+  const { toast } = useToast()
+
+  // State for competition games
+  const [competitionGames, setCompetitionGames] = useState<Game[]>([])
+  const [upcomingCompetitionGames, setUpcomingCompetitionGames] = useState<Game[]>([])
+  const [completedCompetitionGames, setCompletedCompetitionGames] = useState<Game[]>([])
+  const [selectedGameId, setSelectedGameId] = useState<string | null>(null)
+  const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null)
+
+  // State for player assignment modal
+  const [playerAssignmentOpen, setPlayerAssignmentOpen] = useState(false)
+  const [selectedGameForPlayers, setSelectedGameForPlayers] = useState<Game | null>(null)
 
   useEffect(() => {
     async function loadGames() {
       try {
         setLoading(true)
-        const gamesData = await getGames()
+        
+        // Fetch all games data
+        const [allGamesData, suggestedGamesData, dashboardGamesData] = await Promise.all([
+          getGames(),
+          getSuggestedGames(),
+          getGamesForDashboard()
+        ]);
 
-        // Separate suggested games from regular games
-        // In a real implementation, this would come from the API
-        const mockSuggestedGames: Game[] = [
-          {
-            _id: "suggestion1",
-            name: "Tug of War",
-            type: "Team Sport",
-            status: "suggested",
-            votes: 12,
-            suggested: true,
-          },
-          {
-            _id: "suggestion2",
-            name: "Chess Tournament",
-            type: "Strategy",
-            status: "suggested",
-            votes: 8,
-            suggested: true,
-          },
-          {
-            _id: "suggestion3",
-            name: "Archery Competition",
-            type: "Individual",
-            status: "suggested",
-            votes: 5,
-            suggested: true,
-          },
-        ]
-
-        setGames(gamesData)
-        setSuggestedGames(mockSuggestedGames)
+        // Set the games data
+        setGames(allGamesData as Game[] || []);
+        setSuggestedGames(suggestedGamesData as SuggestedGame[] || []);
+        setUpcomingGames(dashboardGamesData?.upcomingGames as Game[] || []);
+        setRecentGames(dashboardGamesData?.recentGames as Game[] || []);
+        
+        // Filter games by competition ID if provided
+        if (selectedCompetitionId) {
+          const gamesInCompetition = (allGamesData as Game[]).filter(
+            game => game.competitionId === selectedCompetitionId
+          );
+          setCompetitionGames(gamesInCompetition);
+          
+          // Separate upcoming and completed games
+          setUpcomingCompetitionGames(
+            gamesInCompetition.filter(game => game.status === "scheduled")
+          );
+          setCompletedCompetitionGames(
+            gamesInCompetition.filter(game => game.status === "completed")
+          );
+        } else {
+          // If no competition ID provided, use games with any competition ID
+          const gamesInCompetition = (allGamesData as Game[]).filter(game => game.competitionId);
+          setCompetitionGames(gamesInCompetition);
+          
+          // Separate upcoming and completed games
+          setUpcomingCompetitionGames(
+            gamesInCompetition.filter(game => game.status === "scheduled")
+          );
+          setCompletedCompetitionGames(
+            gamesInCompetition.filter(game => game.status === "completed")
+          );
+        }
+        
+        setError(null);
       } catch (err) {
         console.error("Failed to load games:", err)
         setError("Failed to load games. Please try again later.")
@@ -98,10 +172,140 @@ export function GamesTab() {
     }
 
     loadGames()
-  }, [])
+  }, [selectedCompetitionId])
+
+  // Function to handle assigning a game to a team as a team captain
+  const handleJoinGame = async (gameId: string) => {
+    if (!user?.teamId) {
+      toast({
+        title: "Error",
+        description: "You need to be part of a team to join a game",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      await assignTeamToGame(gameId, user.teamId);
+      toast({
+        title: "Success",
+        description: "Your team has been registered for this game",
+      });
+      
+      // Refresh the games list to show the updated participation
+      const refreshedGames = await getGames();
+      setGames(refreshedGames as Game[] || []);
+      
+      // Update competition games
+      if (selectedCompetitionId) {
+        const gamesInCompetition = (refreshedGames as Game[]).filter(
+          game => game.competitionId === selectedCompetitionId
+        );
+        setCompetitionGames(gamesInCompetition);
+        
+        // Update upcoming and completed games
+        setUpcomingCompetitionGames(
+          gamesInCompetition.filter(game => game.status === "scheduled")
+        );
+        setCompletedCompetitionGames(
+          gamesInCompetition.filter(game => game.status === "completed")
+        );
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to join game",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Function to handle leaving a game as a team captain
+  const handleLeaveGame = async (gameId: string) => {
+    if (!user?.teamId) {
+      toast({
+        title: "Error",
+        description: "You need to be part of a team to leave a game",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      await removeTeamFromGame(gameId, user.teamId);
+      toast({
+        title: "Success",
+        description: "Your team has been removed from this game",
+      });
+      
+      // Refresh the games list to show the updated participation
+      const refreshedGames = await getGames();
+      setGames(refreshedGames as Game[] || []);
+      
+      // Update competition games
+      if (selectedCompetitionId) {
+        const gamesInCompetition = (refreshedGames as Game[]).filter(
+          game => game.competitionId === selectedCompetitionId
+        );
+        setCompetitionGames(gamesInCompetition);
+        
+        // Update upcoming and completed games
+        setUpcomingCompetitionGames(
+          gamesInCompetition.filter(game => game.status === "scheduled")
+        );
+        setCompletedCompetitionGames(
+          gamesInCompetition.filter(game => game.status === "completed")
+        );
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to leave game",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Check if the current user's team is participating in a specific game
+  const isTeamParticipating = (game: Game) => {
+    if (!user?.teamId || !game.participants) return false;
+    return game.participants.some(p => p.teamId === user.teamId);
+  };
+
+  // Check if a game has reached maximum team count
+  const isGameFull = (game: Game) => {
+    if (!game.maxTeams || !game.participants) return false;
+    return game.participants.length >= game.maxTeams;
+  };
+
+  // Function to open the player assignment modal
+  const openPlayerAssignment = (game: Game) => {
+    setSelectedGameForPlayers(game)
+    setPlayerAssignmentOpen(true)
+  }
+
+  // Format date and time
+  const formatDate = (dateString: string | Date | null | undefined) => {
+    if (!dateString) return "TBD";
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-US", { 
+      weekday: 'short',
+      month: 'short', 
+      day: 'numeric'
+    });
+  };
+  
+  const formatTime = (dateString: string | Date | null | undefined) => {
+    if (!dateString) return "TBD";
+    const date = new Date(dateString);
+    return date.toLocaleTimeString("en-US", { 
+      hour: 'numeric', 
+      minute: '2-digit'
+    });
+  };
 
   if (loading) {
-    return <div className="py-4 text-center text-muted-foreground">Loading games...</div>
+    return <LoadingSpinner text="Loading games..." />
   }
 
   if (error) {
@@ -112,10 +316,24 @@ export function GamesTab() {
     <>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="space-y-1">
-          <h2 className="text-2xl font-bold tracking-tight">Games</h2>
-          <p className="text-muted-foreground">Manage games, schedule events, and track results</p>
+          <h2 className="text-2xl font-bold tracking-tight">Competition Games</h2>
+          <p className="text-muted-foreground">
+            Browse and manage games for {selectedCompetitionId ? "the selected competition" : "all competitions"}
+          </p>
         </div>
-        <div className="flex items-center gap-2">{isAdmin ? <AddGameDialog /> : <SuggestGameDialog />}</div>
+        <div className="flex items-center gap-2">
+          {isAdmin && (
+            <>
+              <AssignGameToCompetitionDialog games={games} />
+              <Button asChild>
+                <Link href="/admin/games">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create Game
+                </Link>
+              </Button>
+            </>
+          )}
+        </div>
       </div>
 
       <div className="flex flex-col gap-4 sm:flex-row">
@@ -129,77 +347,114 @@ export function GamesTab() {
         </Button>
       </div>
 
-      <Tabs defaultValue="all" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="all">All Games</TabsTrigger>
-          <TabsTrigger value="selected">2025 Selected</TabsTrigger>
-          <TabsTrigger value="scheduled">Scheduled</TabsTrigger>
-          <TabsTrigger value="completed">Completed</TabsTrigger>
-          <TabsTrigger value="suggested">Suggested</TabsTrigger>
+      <Tabs defaultValue="upcoming" className="space-y-4">
+        <TabsList className="flex w-full overflow-x-auto">
+          <TabsTrigger value="upcoming">Upcoming Games</TabsTrigger>
+          <TabsTrigger value="completed">Completed Games</TabsTrigger>
+          {isAdmin && <TabsTrigger value="all">All Games</TabsTrigger>}
+          {isAdmin && <TabsTrigger value="suggested">Suggested Games</TabsTrigger>}
         </TabsList>
 
-        <TabsContent value="all" className="space-y-4">
+        {/* Upcoming Games Tab */}
+        <TabsContent value="upcoming" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Game Pool</CardTitle>
-              <CardDescription>All available games that can be selected for competitions</CardDescription>
+              <CardTitle>Upcoming Games</CardTitle>
+              <CardDescription>
+                Games scheduled for {selectedCompetitionId ? "the selected competition" : "all competitions"}
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-8">
-                <div className="rounded-md border">
-                  <div className="grid grid-cols-6 p-4 font-medium">
-                    <div className="flex items-center gap-2">
-                      {isAdmin && <Checkbox id="select-all" />}
-                      <label htmlFor="select-all">Game</label>
+                {upcomingCompetitionGames.length > 0 ? (
+                  <div className="rounded-md border">
+                    <div className="grid grid-cols-7 p-4 font-medium">
+                      <div>Game</div>
+                      <div>Date</div>
+                      <div>Time</div>
+                      <div>Location</div>
+                      <div>Teams</div>
+                      <div>Status</div>
+                      <div className="text-right">Actions</div>
                     </div>
-                    <div>Type</div>
-                    <div>Players</div>
-                    <div>Duration</div>
-                    <div>Status</div>
-                    <div className="text-right">Actions</div>
-                  </div>
-                  <div className="divide-y">
-                    {games.map((game, i) => {
-                      const isSelected = game.status === "scheduled" || game.status === "completed"
-                      const gameTypes = ["Team Sport", "Individual", "Relay", "Strategy"]
-                      const gameType = game.type || gameTypes[i % gameTypes.length]
-
-                      return (
-                        <div key={game._id} className="grid grid-cols-6 p-4 items-center">
-                          <div className="flex items-center gap-2">
-                            {isAdmin && <Checkbox id={`game-${i}`} checked={isSelected} />}
-                            <label htmlFor={`game-${i}`} className="text-sm font-medium">
-                              {game.name}
-                            </label>
-                          </div>
-                          <div className="text-sm">{gameType}</div>
-                          <div className="text-sm">
-                            {gameType === "Team Sport" ? "Team" : gameType === "Relay" ? "4-8 players" : "Individual"}
-                          </div>
-                          <div className="text-sm">{30 + (i % 3) * 15} min</div>
-                          <div>
-                            <Badge variant={isSelected ? "default" : "outline"} className="text-xs">
-                              {isSelected ? "Selected 2025" : "Available"}
-                            </Badge>
-                          </div>
-                          <div className="flex justify-end gap-2">
-                            {isAdmin && (
-                              <Button variant="ghost" size="sm">
-                                Edit
+                    <div className="divide-y">
+                      {upcomingCompetitionGames.map((game) => {
+                        const isParticipating = isTeamParticipating(game);
+                        const isFull = isGameFull(game);
+                        const teamCount = game.participants?.length || 0;
+                        const maxTeams = game.maxTeams || "∞";
+                        
+                        return (
+                          <div key={game.id} className="grid grid-cols-7 p-4 items-center">
+                            <div className="flex flex-col">
+                              <span className="text-sm font-medium">{game.name}</span>
+                              <span className="text-xs text-muted-foreground">{game.type}</span>
+                            </div>
+                            <div className="text-sm">{formatDate(game.date)}</div>
+                            <div className="text-sm">{formatTime(game.date)}</div>
+                            <div className="text-sm">{game.location || "TBD"}</div>
+                            <div className="text-sm">
+                              {teamCount}/{maxTeams}
+                            </div>
+                            <div>
+                              <Badge 
+                                variant="default" 
+                                className="text-xs"
+                              >
+                                Scheduled
+                              </Badge>
+                            </div>
+                            <div className="flex justify-end gap-2">
+                              {isCaptain && (
+                                <>
+                                  {isParticipating ? (
+                                    <>
+                                      <Button 
+                                        variant="outline" 
+                                        size="sm" 
+                                        onClick={() => openPlayerAssignment(game)}
+                                      >
+                                        Assign Players
+                                      </Button>
+                                      <Button 
+                                        variant="outline" 
+                                        size="sm" 
+                                        onClick={() => handleLeaveGame(game.id)}
+                                      >
+                                        Leave
+                                      </Button>
+                                    </>
+                                  ) : (
+                                    <Button 
+                                      variant="outline" 
+                                      size="sm" 
+                                      onClick={() => handleJoinGame(game.id)}
+                                      disabled={isFull}
+                                    >
+                                      {isFull ? "Full" : "Join"}
+                                    </Button>
+                                  )}
+                                </>
+                              )}
+                              <Button variant="ghost" size="sm" asChild>
+                                <Link href={`/games/${game.id}`}>
+                                  View
+                                </Link>
                               </Button>
-                            )}
-                            <Button variant="ghost" size="sm">
-                              View
-                            </Button>
+                            </div>
                           </div>
-                        </div>
-                      )
-                    })}
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-                {isAdmin && (
-                  <div className="flex justify-end">
-                    <Button>Save Selection</Button>
+                ) : (
+                  <div className="text-center py-12 bg-muted/20 rounded-lg border border-dashed">
+                    <CalendarX className="mx-auto h-10 w-10 text-muted-foreground mb-2" />
+                    <h3 className="text-xl font-medium mb-2">No Upcoming Games</h3>
+                    <p className="text-muted-foreground mb-6">There are no upcoming games scheduled for this competition yet.</p>
+                    {isAdmin && (
+                      <AssignGameToCompetitionDialog games={games} />
+                    )}
                   </div>
                 )}
               </div>
@@ -207,483 +462,365 @@ export function GamesTab() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="selected" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>2025 Selected Games</CardTitle>
-              <CardDescription>Games selected for the Eid-Al-Athletes competition</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-8">
-                <div className="rounded-md border">
-                  <div className="grid grid-cols-6 p-4 font-medium">
-                    <div>Game</div>
-                    <div>Type</div>
-                    <div>Schedule Status</div>
-                    <div>Points Value</div>
-                    <div>Backup Plan</div>
-                    <div className="text-right">Actions</div>
-                  </div>
-                  <div className="divide-y">
-                    {games
-                      .filter((game) => game.status === "scheduled" || game.status === "completed")
-                      .map((game, i) => (
-                        <div key={game._id} className="grid grid-cols-6 p-4 items-center">
-                          <div className="text-sm font-medium">{game.name}</div>
-                          <div className="text-sm">{game.type}</div>
-                          <div>
-                            <Badge variant={game.status === "completed" ? "success" : "default"} className="text-xs">
-                              {game.status === "completed" ? "Completed" : "Scheduled"}
-                            </Badge>
-                          </div>
-                          <div className="text-sm">{game.pointsValue || ((i % 3) + 1) * 100} pts</div>
-                          <div className="text-sm">
-                            {i % 2 === 0 ? (
-                              <span className="flex items-center text-green-600">
-                                <Check className="h-3 w-3 mr-1" />
-                                Set
-                              </span>
-                            ) : (
-                              <span className="flex items-center text-amber-600">
-                                <CloudRain className="h-3 w-3 mr-1" />
-                                Needed
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex justify-end gap-2">
-                            {isAdmin && (
-                              <>
-                                <Button variant="outline" size="sm">
-                                  {game.status === "completed" ? "View Results" : "Schedule"}
-                                </Button>
-                                {i % 2 !== 0 && <AddBackupPlanDialog gameId={game._id} gameName={game.name} />}
-                              </>
-                            )}
-                            <Button variant="ghost" size="sm">
-                              View
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="scheduled" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Scheduled Games</CardTitle>
-              <CardDescription>Games that have been scheduled for the competition</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-8">
-                <div className="rounded-md border">
-                  <div className="grid grid-cols-6 p-4 font-medium">
-                    <div>Game</div>
-                    <div>Date</div>
-                    <div>Time</div>
-                    <div>Teams</div>
-                    <div>Location</div>
-                    <div className="text-right">Actions</div>
-                  </div>
-                  <div className="divide-y">
-                    {games
-                      .filter((game) => game.status === "scheduled" || game.status === "completed")
-                      .map((game, i) => {
-                        const isCompleted = game.status === "completed"
-                        const gameDate = game.date ? new Date(game.date) : new Date(`2025-06-${15 + i}`)
-
-                        return (
-                          <div key={game._id} className="grid grid-cols-6 p-4 items-center">
-                            <div className="text-sm font-medium">{game.name}</div>
-                            <div className="text-sm">
-                              {gameDate.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}
-                            </div>
-                            <div className="text-sm">{`${1 + (i % 3)}:00 PM`}</div>
-                            <div className="text-sm">
-                              {game.team1 === "team1"
-                                ? "Mountain Goats"
-                                : game.team1 === "team2"
-                                  ? "Royal Rams"
-                                  : game.team1 === "team3"
-                                    ? "Athletic Antelopes"
-                                    : game.team1 === "team4"
-                                      ? "Speed Sheep"
-                                      : `Team ${(i % 8) + 1}`}
-                              {" vs "}
-                              {game.team2 === "team1"
-                                ? "Mountain Goats"
-                                : game.team2 === "team2"
-                                  ? "Royal Rams"
-                                  : game.team2 === "team3"
-                                    ? "Athletic Antelopes"
-                                    : game.team2 === "team4"
-                                      ? "Speed Sheep"
-                                      : `Team ${((i + 4) % 8) + 1}`}
-                            </div>
-                            <div className="text-sm">{game.location || "Main Arena"}</div>
-                            <div className="flex justify-end gap-2">
-                              {isAdmin && (
-                                <Button variant="outline" size="sm">
-                                  {isCompleted ? "View Results" : "Record Results"}
-                                </Button>
-                              )}
-                              <Button variant="ghost" size="sm">
-                                {isAdmin ? "Edit" : "View"}
-                              </Button>
-                            </div>
-                          </div>
-                        )
-                      })}
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
+        {/* Completed Games Tab */}
         <TabsContent value="completed" className="space-y-4">
           <Card>
             <CardHeader>
               <CardTitle>Completed Games</CardTitle>
-              <CardDescription>Games that have been completed with results</CardDescription>
+              <CardDescription>
+                Completed games with results for {selectedCompetitionId ? "the selected competition" : "all competitions"}
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-8">
-                <div className="rounded-md border">
-                  <div className="grid grid-cols-6 p-4 font-medium">
-                    <div>Game</div>
-                    <div>Date</div>
-                    <div>Teams</div>
-                    <div>Result</div>
-                    <div>Points Awarded</div>
-                    <div className="text-right">Actions</div>
+                {completedCompetitionGames.length > 0 ? (
+                  <div className="rounded-md border">
+                    <div className="grid grid-cols-7 p-4 font-medium">
+                      <div>Game</div>
+                      <div>Date</div>
+                      <div>Location</div>
+                      <div>Teams</div>
+                      <div>Result</div>
+                      <div>Points</div>
+                      <div className="text-right">Actions</div>
+                    </div>
+                    <div className="divide-y">
+                      {completedCompetitionGames.map((game) => {
+                        const teamA = game.participants?.[0];
+                        const teamB = game.participants?.[1];
+                        const hasMultipleTeams = game.participants && game.participants.length > 1;
+                        
+                        return (
+                          <div key={game.id} className="grid grid-cols-7 p-4 items-center">
+                            <div className="flex flex-col">
+                              <span className="text-sm font-medium">{game.name}</span>
+                              <span className="text-xs text-muted-foreground">{game.type}</span>
+                            </div>
+                            <div className="text-sm">{formatDate(game.date)}</div>
+                            <div className="text-sm">{game.location || "N/A"}</div>
+                            <div className="text-sm">
+                              {hasMultipleTeams ? (
+                                <div className="flex flex-col gap-1">
+                                  <div className="text-xs font-medium">{teamA?.team.name}</div>
+                                  <div className="text-xs">vs</div>
+                                  <div className="text-xs font-medium">{teamB?.team.name}</div>
+                                </div>
+                              ) : (
+                                game.participants?.map(p => (
+                                  <div key={p.teamId} className="text-xs font-medium">{p.team.name}</div>
+                                )) || "No teams"
+                              )}
+                            </div>
+                            <div className="text-sm font-medium">
+                              {hasMultipleTeams ? (
+                                <div className="flex items-center justify-center text-base font-bold">
+                                  <span className={teamA?.score && teamB?.score && teamA.score > teamB.score ? "text-green-600" : ""}>{teamA?.score || 0}</span>
+                                  <span className="mx-1">-</span>
+                                  <span className={teamB?.score && teamA?.score && teamB.score > teamA.score ? "text-green-600" : ""}>{teamB?.score || 0}</span>
+                                </div>
+                              ) : (
+                                <div className="space-y-1">
+                                  {game.participants?.map(p => (
+                                    <div key={p.teamId} className="flex justify-between">
+                                      <span className="text-xs">{p.team.name}:</span>
+                                      <span className="text-xs font-medium">{p.score || 0}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                            <div className="text-sm font-medium">{game.pointsValue || 0}</div>
+                            <div className="flex justify-end gap-2">
+                              <Button variant="ghost" size="sm" asChild>
+                                <Link href={`/games/${game.id}`}>
+                                  Details
+                                </Link>
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
-                  <div className="divide-y">
-                    {games
-                      .filter((game) => game.status === "completed")
-                      .map((game, i) => {
-                        const gameDate = game.date ? new Date(game.date) : new Date(`2025-06-${15 + i}`)
+                ) : (
+                  <div className="text-center py-12 bg-muted/20 rounded-lg border border-dashed">
+                    <Check className="mx-auto h-10 w-10 text-muted-foreground mb-2" />
+                    <h3 className="text-xl font-medium mb-2">No Completed Games</h3>
+                    <p className="text-muted-foreground">There are no completed games for this competition yet.</p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {isAdmin && (
+          <TabsContent value="all" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Game Pool</CardTitle>
+                <CardDescription>All available games that can be selected for competitions</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-8">
+                  <div className="rounded-md border">
+                    <div className="grid grid-cols-6 p-4 font-medium">
+                      <div className="flex items-center gap-2">
+                        {isAdmin && <Checkbox id="select-all" />}
+                        <label htmlFor="select-all">Game</label>
+                      </div>
+                      <div>Type</div>
+                      <div>Players</div>
+                      <div>Duration</div>
+                      <div>Status</div>
+                      <div className="text-right">Actions</div>
+                    </div>
+                    <div className="divide-y">
+                      {games.map((game) => {
+                        const isSelected = game.status === "scheduled" || game.status === "completed"
 
                         return (
-                          <div key={game._id} className="grid grid-cols-6 p-4 items-center">
-                            <div className="text-sm font-medium">{game.name}</div>
-                            <div className="text-sm">
-                              {gameDate.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}
+                          <div key={game.id} className="grid grid-cols-6 p-4 items-center">
+                            <div className="flex items-center gap-2">
+                              {isAdmin && <Checkbox id={`game-${game.id}`} checked={isSelected} />}
+                              <label htmlFor={`game-${game.id}`} className="text-sm font-medium">
+                                {game.name}
+                              </label>
                             </div>
+                            <div className="text-sm">{game.type}</div>
                             <div className="text-sm">
-                              {game.team1 === "team1"
-                                ? "Mountain Goats"
-                                : game.team1 === "team2"
-                                  ? "Royal Rams"
-                                  : game.team1 === "team3"
-                                    ? "Athletic Antelopes"
-                                    : game.team1 === "team4"
-                                      ? "Speed Sheep"
-                                      : `Team ${(i % 8) + 1}`}
-                              {" vs "}
-                              {game.team2 === "team1"
-                                ? "Mountain Goats"
-                                : game.team2 === "team2"
-                                  ? "Royal Rams"
-                                  : game.team2 === "team3"
-                                    ? "Athletic Antelopes"
-                                    : game.team2 === "team4"
-                                      ? "Speed Sheep"
-                                      : `Team ${((i + 4) % 8) + 1}`}
+                              {game.playerCount || (game.type === "Team Sport" ? "Team" : game.type === "Relay" ? "4-8 players" : "Individual")}
                             </div>
-                            <div className="text-sm">
-                              {game.score1}-{game.score2}
+                            <div className="text-sm">{game.duration ? `${game.duration} min` : "30 min"}</div>
+                            <div>
+                              <Badge variant={isSelected ? "default" : "outline"} className="text-xs">
+                                {isSelected ? "Selected" : "Available"}
+                              </Badge>
                             </div>
-                            <div className="text-sm">{game.pointsValue || ((i % 3) + 1) * 100} pts</div>
                             <div className="flex justify-end gap-2">
-                              <Button variant="outline" size="sm">
-                                View Details
-                              </Button>
                               {isAdmin && (
-                                <Button variant="ghost" size="sm">
-                                  Edit
+                                <Button variant="ghost" size="sm" asChild>
+                                  <Link href={`/admin/games/${game.id}`}>
+                                    Edit
+                                  </Link>
                                 </Button>
                               )}
+                              <Button variant="ghost" size="sm" asChild>
+                                <Link href={`/games/${game.id}`}>
+                                  View
+                                </Link>
+                              </Button>
                             </div>
                           </div>
                         )
                       })}
+                    </div>
                   </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
 
-        <TabsContent value="suggested" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Suggested Games</CardTitle>
-              <CardDescription>Games suggested by users for future competitions</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-8">
-                <div className="rounded-md border">
-                  <div className="grid grid-cols-5 p-4 font-medium">
-                    <div>Game</div>
-                    <div>Type</div>
-                    <div>Votes</div>
-                    <div>Status</div>
-                    <div className="text-right">Actions</div>
-                  </div>
-                  <div className="divide-y">
-                    {suggestedGames.map((game, i) => (
-                      <div key={game._id} className="grid grid-cols-5 p-4 items-center">
-                        <div className="text-sm font-medium">{game.name}</div>
-                        <div className="text-sm">{game.type}</div>
-                        <div className="text-sm">{game.votes}</div>
-                        <div>
-                          <Badge variant="outline" className="text-xs">
-                            Suggested
-                          </Badge>
-                        </div>
-                        <div className="flex justify-end gap-2">
-                          {isAdmin ? (
-                            <Button variant="outline" size="sm">
-                              <Check className="h-4 w-4 mr-1" />
-                              Add to Pool
+        {isAdmin && (
+          <TabsContent value="suggested" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Suggested Games</CardTitle>
+                <CardDescription>Games suggested by the community</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-8">
+                  <div className="rounded-md border">
+                    <div className="grid grid-cols-5 p-4 font-medium">
+                      <div>Game</div>
+                      <div>Type</div>
+                      <div>Votes</div>
+                      <div>Suggested By</div>
+                      <div className="text-right">Actions</div>
+                    </div>
+                    <div className="divide-y">
+                      {suggestedGames.map((game) => (
+                        <div key={game.id} className="grid grid-cols-5 p-4 items-center">
+                          <div className="text-sm font-medium">{game.name}</div>
+                          <div className="text-sm">{game.type}</div>
+                          <div className="text-sm">{game.votes}</div>
+                          <div className="text-sm">{game.suggestedBy?.name || "Anonymous"}</div>
+                          <div className="flex justify-end gap-2">
+                            <Button variant="outline" size="sm" className={game.hasVoted ? "bg-primary/10" : ""}>
+                              <ThumbsUp className={`h-4 w-4 mr-2 ${game.hasVoted ? "text-primary" : ""}`} />
+                              {game.hasVoted ? "Voted" : "Vote"}
                             </Button>
-                          ) : (
-                            <Button variant="outline" size="sm">
-                              <ThumbsUp className="h-4 w-4 mr-1" />
-                              Vote
-                            </Button>
-                          )}
-                          <Button variant="ghost" size="sm">
-                            View
-                          </Button>
+                            {isAdmin && (
+                              <Button variant="ghost" size="sm">
+                                Approve
+                              </Button>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
       </Tabs>
+
+      {selectedGameForPlayers && user?.teamId && (
+        <AssignPlayersModal 
+          open={playerAssignmentOpen}
+          onOpenChange={setPlayerAssignmentOpen}
+          gameId={selectedGameForPlayers.id}
+          teamId={user.teamId}
+          maxPlayers={selectedGameForPlayers.playerCount}
+        />
+      )}
     </>
   )
 }
 
-function AddGameDialog() {
+// Dialog for admins to assign games to competitions
+function AssignGameToCompetitionDialog({ games }: { games: Game[] }) {
   const [open, setOpen] = useState(false)
-  const [gameName, setGameName] = useState("")
-  const [gameType, setGameType] = useState("")
+  const [selectedGameId, setSelectedGameId] = useState<string>("")
+  const [selectedCompetitionId, setSelectedCompetitionId] = useState<string>("")
+  const [competitions, setCompetitions] = useState<Array<{ id: string; name: string; year: number }>>([])
+  const [loading, setLoading] = useState(false)
+  const { toast } = useToast()
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Load competitions
+  useEffect(() => {
+    async function loadCompetitions() {
+      try {
+        const response = await fetch('/api/competitions')
+        const data = await response.json()
+        if (Array.isArray(data)) {
+          setCompetitions(data.map(comp => ({
+            id: comp.id,
+            name: comp.name,
+            year: comp.year
+          })))
+        }
+      } catch (error) {
+        console.error('Failed to load competitions:', error)
+      }
+    }
+
+    if (open) {
+      loadCompetitions()
+    }
+  }, [open])
+
+  // Filter out games that already have a competition assigned
+  const availableGames = games.filter(game => !game.competitionId)
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    // In a real implementation, this would call an API endpoint
-    alert(`Game "${gameName}" would be added`)
-    setGameName("")
-    setGameType("")
-    setOpen(false)
+    
+    if (!selectedGameId || !selectedCompetitionId) {
+      toast({
+        title: "Error",
+        description: "Please select both a game and a competition",
+        variant: "destructive"
+      })
+      return
+    }
+    
+    try {
+      setLoading(true)
+      await assignGameToCompetition(selectedGameId, selectedCompetitionId)
+      
+      toast({
+        title: "Success",
+        description: "Game has been assigned to the competition",
+      })
+      
+      // Reset form and close dialog
+      setSelectedGameId("")
+      setSelectedCompetitionId("")
+      setOpen(false)
+      
+      // Refresh the page to show changes
+      window.location.reload()
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to assign game to competition",
+        variant: "destructive"
+      })
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Game
+        <Button variant="outline">
+          <Calendar className="h-4 w-4 mr-2" />
+          Assign Game
         </Button>
       </DialogTrigger>
       <DialogContent>
         <form onSubmit={handleSubmit}>
           <DialogHeader>
-            <DialogTitle>Add New Game</DialogTitle>
-            <DialogDescription>Add a new game to the game pool.</DialogDescription>
+            <DialogTitle>Assign Game to Competition</DialogTitle>
+            <DialogDescription>Select a game and competition to assign it to</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="game-name" className="text-right">
-                Game Name
+              <Label htmlFor="game" className="text-right">
+                Game
               </Label>
-              <Input
-                id="game-name"
-                value={gameName}
-                onChange={(e) => setGameName(e.target.value)}
-                className="col-span-3"
-                required
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="game-type" className="text-right">
-                Game Type
-              </Label>
-              <Select value={gameType} onValueChange={setGameType}>
+              <Select value={selectedGameId} onValueChange={setSelectedGameId}>
                 <SelectTrigger className="col-span-3">
-                  <SelectValue placeholder="Select a game type" />
+                  <SelectValue placeholder="Select a game" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Team Sport">Team Sport</SelectItem>
-                  <SelectItem value="Individual">Individual</SelectItem>
-                  <SelectItem value="Relay">Relay</SelectItem>
-                  <SelectItem value="Strategy">Strategy</SelectItem>
+                  {availableGames.length > 0 ? (
+                    availableGames.map(game => (
+                      <SelectItem key={game.id} value={game.id}>
+                        {game.name}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <SelectItem value="none" disabled>
+                      No available games
+                    </SelectItem>
+                  )}
                 </SelectContent>
               </Select>
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="points-value" className="text-right">
-                Points Value
+              <Label htmlFor="competition" className="text-right">
+                Competition
               </Label>
-              <Input id="points-value" type="number" defaultValue="100" className="col-span-3" />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button type="submit">Add Game</Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  )
-}
-
-function SuggestGameDialog() {
-  const [open, setOpen] = useState(false)
-  const [gameName, setGameName] = useState("")
-  const [gameType, setGameType] = useState("")
-  const [description, setDescription] = useState("")
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    // In a real implementation, this would call an API endpoint
-    alert(`Game "${gameName}" has been suggested`)
-    setGameName("")
-    setGameType("")
-    setDescription("")
-    setOpen(false)
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button>
-          <Plus className="h-4 w-4 mr-2" />
-          Suggest Game
-        </Button>
-      </DialogTrigger>
-      <DialogContent>
-        <form onSubmit={handleSubmit}>
-          <DialogHeader>
-            <DialogTitle>Suggest New Game</DialogTitle>
-            <DialogDescription>
-              Suggest a new game for future competitions. Other users can vote on your suggestion.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="game-name" className="text-right">
-                Game Name
-              </Label>
-              <Input
-                id="game-name"
-                value={gameName}
-                onChange={(e) => setGameName(e.target.value)}
-                className="col-span-3"
-                required
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="game-type" className="text-right">
-                Game Type
-              </Label>
-              <Select value={gameType} onValueChange={setGameType}>
+              <Select value={selectedCompetitionId} onValueChange={setSelectedCompetitionId}>
                 <SelectTrigger className="col-span-3">
-                  <SelectValue placeholder="Select a game type" />
+                  <SelectValue placeholder="Select a competition" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Team Sport">Team Sport</SelectItem>
-                  <SelectItem value="Individual">Individual</SelectItem>
-                  <SelectItem value="Relay">Relay</SelectItem>
-                  <SelectItem value="Strategy">Strategy</SelectItem>
+                  {competitions.length > 0 ? (
+                    competitions.map(comp => (
+                      <SelectItem key={comp.id} value={comp.id}>
+                        {comp.name} ({comp.year})
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <SelectItem value="none" disabled>
+                      No competitions found
+                    </SelectItem>
+                  )}
                 </SelectContent>
               </Select>
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="description" className="text-right">
-                Description
-              </Label>
-              <Textarea
-                id="description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                className="col-span-3"
-                rows={3}
-                required
-              />
-            </div>
           </div>
           <DialogFooter>
-            <Button type="submit">Submit Suggestion</Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  )
-}
-
-function AddBackupPlanDialog({ gameId, gameName }: { gameId: string; gameName: string }) {
-  const [open, setOpen] = useState(false)
-  const [backupPlan, setBackupPlan] = useState("")
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    // In a real implementation, this would call an API endpoint
-    alert(`Backup plan added for "${gameName}"`)
-    setBackupPlan("")
-    setOpen(false)
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="ghost" size="sm">
-          <CloudRain className="h-4 w-4 mr-1" />
-          Add Backup
-        </Button>
-      </DialogTrigger>
-      <DialogContent>
-        <form onSubmit={handleSubmit}>
-          <DialogHeader>
-            <DialogTitle>Add Rainy Day Backup</DialogTitle>
-            <DialogDescription>
-              Add a backup plan for {gameName} in case of bad weather or other issues.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="backup-plan" className="text-right">
-                Backup Plan
-              </Label>
-              <Textarea
-                id="backup-plan"
-                value={backupPlan}
-                onChange={(e) => setBackupPlan(e.target.value)}
-                className="col-span-3"
-                rows={4}
-                placeholder="Describe the backup plan for this game..."
-                required
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="backup-location" className="text-right">
-                Backup Location
-              </Label>
-              <Input id="backup-location" defaultValue="Indoor Arena" className="col-span-3" />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button type="submit">Save Backup Plan</Button>
+            <Button type="submit" disabled={loading || !selectedGameId || !selectedCompetitionId}>
+              {loading ? "Assigning..." : "Assign Game"}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>

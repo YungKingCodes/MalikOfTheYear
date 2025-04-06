@@ -10,15 +10,41 @@ import { Badge } from "@/components/ui/badge"
 import { Search, Plus, Filter, Trophy, Users, BarChart3, Crown } from "lucide-react"
 import { Progress } from "@/components/ui/progress"
 import { useSession } from "next-auth/react"
-import { getTeams, getTeamsInCaptainVoting, getIncompleteTeams } from "@/lib/data"
 import { TeamDetailsModal } from "@/components/modals/team-details-modal"
+import { getAllTeams, getIncompleteTeams, getTeamsInCaptainVoting } from "@/app/actions/teams"
+import { CreateTeamDialog } from "@/components/dashboard/teams-tab"
+import { LoadingSpinner } from "@/components/loading-skeletons/competition-detail-skeleton"
+
+interface TeamMember {
+  id: string
+  name: string | null
+  image: string | null
+}
+
+interface Team {
+  _id: string
+  name: string
+  score: number
+  captain: string
+  captainId?: string | null
+  members: (TeamMember | undefined)[] | null | undefined
+  winRate?: number
+  votesCast?: number
+  totalMembers?: number
+  status?: string
+  votingPercentage?: number
+  neededPlayers?: number
+  maxScore?: number
+}
 
 export default function TeamsClientPage() {
-  const [teams, setTeams] = useState<any[]>([])
-  const [incompleteTeams, setIncompleteTeams] = useState<any[]>([])
-  const [teamsInVoting, setTeamsInVoting] = useState<any[]>([])
+  const [teams, setTeams] = useState<Team[]>([])
+  const [incompleteTeams, setIncompleteTeams] = useState<Team[]>([])
+  const [teamsInVoting, setTeamsInVoting] = useState<Team[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const { data: session } = useSession()
+  const user = session?.user
 
   // For team details modal
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null)
@@ -29,18 +55,28 @@ export default function TeamsClientPage() {
       try {
         setLoading(true)
         const [teamsData, incompleteTeamsData, votingTeamsData] = await Promise.all([
-          getTeams(),
+          getAllTeams(),
           getIncompleteTeams(),
           getTeamsInCaptainVoting(),
         ])
 
-        setTeams(teamsData)
-        setIncompleteTeams(incompleteTeamsData)
-        setTeamsInVoting(votingTeamsData)
+        // Type assertion to make TypeScript happy
+        const typedTeams = teamsData as Team[] || []
+        const typedIncompleteTeams = incompleteTeamsData as Team[] || []
+        const typedVotingTeams = votingTeamsData as Team[] || []
+
+        setTeams(typedTeams)
+        setIncompleteTeams(typedIncompleteTeams)
+        setTeamsInVoting(typedVotingTeams)
         setError(null)
       } catch (err) {
         console.error("Failed to load teams data:", err)
-        setError("Failed to load teams data. Please try again later.")
+        // Don't set an error message for empty teams, just set empty arrays
+        setTeams([])
+        setIncompleteTeams([])
+        setTeamsInVoting([])
+        // Only set error for actual errors, not for empty data
+        setError(null)
       } finally {
         setLoading(false)
       }
@@ -55,12 +91,22 @@ export default function TeamsClientPage() {
   }
 
   if (loading) {
-    return <div className="py-8 text-center">Loading teams data...</div>
+    return <LoadingSpinner text="Loading teams data..." />
   }
 
-  if (error) {
-    return <div className="py-8 text-center text-destructive">{error}</div>
-  }
+  // Create empty state component for reuse
+  const EmptyStateMessage = ({ 
+    title, 
+    description 
+  }: { 
+    title: string; 
+    description: string; 
+  }) => (
+    <div className="text-center py-12 bg-muted/20 rounded-lg border border-dashed">
+      <h3 className="text-xl font-medium mb-2">{title}</h3>
+      <p className="text-muted-foreground mb-6">{description}</p>
+    </div>
+  );
 
   return (
     <div className="flex flex-col gap-8 p-4 md:p-8">
@@ -69,7 +115,6 @@ export default function TeamsClientPage() {
           <h1 className="text-2xl font-bold tracking-tight">Teams</h1>
           <p className="text-muted-foreground">Manage teams, captains, and team members</p>
         </div>
-        <AdminOnlyButton />
       </div>
 
       <div className="flex flex-col gap-4 sm:flex-row">
@@ -83,11 +128,18 @@ export default function TeamsClientPage() {
         </Button>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        {teams.slice(0, 4).map((team, index) => (
-          <TeamCard key={team._id} team={team} rank={index + 1} onView={handleViewTeam} />
-        ))}
-      </div>
+      {teams.length > 0 ? (
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+          {teams.slice(0, 4).map((team, index) => (
+            <TeamCard key={team._id} team={team} rank={index + 1} onView={handleViewTeam} />
+          ))}
+        </div>
+      ) : (
+        <EmptyStateMessage 
+          title="No Teams Found" 
+          description="There are no teams set up for the current competition yet." 
+        />
+      )}
 
       <Tabs defaultValue="all" className="space-y-4">
         <TabsList className="flex w-full overflow-x-auto">
@@ -103,40 +155,83 @@ export default function TeamsClientPage() {
               <CardDescription>All teams participating in the 2025 competition</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-8">
-                {/* Desktop view */}
-                <div className="hidden md:block rounded-md border">
-                  <div className="grid grid-cols-6 p-4 font-medium">
-                    <div>Team</div>
-                    <div>Captain</div>
-                    <div>Members</div>
-                    <div>Score</div>
-                    <div>Rank</div>
-                    <div className="text-right">Actions</div>
-                  </div>
-                  <div className="divide-y">
-                    {teams.map((team, index) => (
-                      <div key={team._id} className="grid grid-cols-6 p-4 items-center">
-                        <div className="flex items-center gap-3">
-                          <Avatar className="h-8 w-8">
-                            <AvatarImage
-                              src={`/placeholder.svg?height=32&width=32&text=${team.name.substring(0, 2)}`}
-                              alt={team.name}
-                            />
-                            <AvatarFallback>{team.name.substring(0, 2)}</AvatarFallback>
-                          </Avatar>
+              {teams.length > 0 ? (
+                <div className="space-y-8">
+                  {/* Desktop view */}
+                  <div className="hidden md:block rounded-md border">
+                    <div className="grid grid-cols-6 p-4 font-medium">
+                      <div>Team</div>
+                      <div>Captain</div>
+                      <div>Members</div>
+                      <div>Score</div>
+                      <div>Rank</div>
+                      <div className="text-right">Actions</div>
+                    </div>
+                    <div className="divide-y">
+                      {teams.map((team, index) => (
+                        <div key={team._id} className="grid grid-cols-6 p-4 items-center">
+                          <div className="flex items-center gap-3">
+                            <Avatar className="h-8 w-8">
+                              <AvatarImage
+                                src={`/placeholder.svg?height=32&width=32&text=${team.name.substring(0, 2)}`}
+                                alt={team.name}
+                              />
+                              <AvatarFallback>{team.name.substring(0, 2)}</AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <p className="text-sm font-medium">{team.name}</p>
+                            </div>
+                          </div>
+                          <div className="text-sm">{team.captain}</div>
+                          <div className="text-sm">{team.members ? team.members.length : 0}/8</div>
+                          <div className="text-sm">{team.score}</div>
                           <div>
-                            <p className="text-sm font-medium">{team.name}</p>
+                            <Badge variant={index < 3 ? "default" : "outline"} className="text-xs">
+                              #{index + 1}
+                            </Badge>
+                          </div>
+                          <div className="flex justify-end gap-2">
+                            <ActionButtons teamId={team._id} onView={handleViewTeam} />
                           </div>
                         </div>
-                        <div className="text-sm">{team.captain}</div>
-                        <div className="text-sm">{team.members.length}/8</div>
-                        <div className="text-sm">{team.score}</div>
-                        <div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Mobile view */}
+                  <div className="md:hidden space-y-4">
+                    {teams.map((team, index) => (
+                      <div key={team._id} className="border rounded-lg p-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-3">
+                            <Avatar className="h-10 w-10">
+                              <AvatarImage
+                                src={`/placeholder.svg?height=40&width=40&text=${team.name.substring(0, 2)}`}
+                                alt={team.name}
+                              />
+                              <AvatarFallback>{team.name.substring(0, 2)}</AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <p className="font-medium">{team.name}</p>
+                              <p className="text-sm text-muted-foreground">Captain: {team.captain}</p>
+                            </div>
+                          </div>
                           <Badge variant={index < 3 ? "default" : "outline"} className="text-xs">
                             #{index + 1}
                           </Badge>
                         </div>
+
+                        <div className="grid grid-cols-2 gap-y-2 mb-3">
+                          <div>
+                            <p className="text-xs text-muted-foreground">Members</p>
+                            <p className="text-sm">{team.members ? team.members.length : 0}/8</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-muted-foreground">Score</p>
+                            <p className="text-sm">{team.score}</p>
+                          </div>
+                        </div>
+
                         <div className="flex justify-end gap-2">
                           <ActionButtons teamId={team._id} onView={handleViewTeam} />
                         </div>
@@ -144,13 +239,67 @@ export default function TeamsClientPage() {
                     ))}
                   </div>
                 </div>
+              ) : (
+                <EmptyStateMessage 
+                  title="No Teams Available" 
+                  description="No teams have been created for the current competition yet." 
+                />
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-                {/* Mobile view */}
-                <div className="md:hidden space-y-4">
-                  {teams.map((team, index) => (
-                    <div key={team._id} className="border rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-3">
+        <TabsContent value="incomplete" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Incomplete Teams</CardTitle>
+              <CardDescription>Teams that need additional members</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {incompleteTeams.length > 0 ? (
+                <div className="space-y-8">
+                  {/* Desktop view */}
+                  <div className="hidden md:block rounded-md border">
+                    <div className="grid grid-cols-5 p-4 font-medium">
+                      <div>Team</div>
+                      <div>Captain</div>
+                      <div>Members</div>
+                      <div>Needed</div>
+                      <div className="text-right">Actions</div>
+                    </div>
+                    <div className="divide-y">
+                      {incompleteTeams.map((team) => (
+                        <div key={team._id} className="grid grid-cols-5 p-4 items-center">
+                          <div className="flex items-center gap-3">
+                            <Avatar className="h-8 w-8">
+                              <AvatarImage
+                                src={`/placeholder.svg?height=32&width=32&text=${team.name.substring(0, 2)}`}
+                                alt={team.name}
+                              />
+                              <AvatarFallback>{team.name.substring(0, 2)}</AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <p className="text-sm font-medium">{team.name}</p>
+                            </div>
+                          </div>
+                          <div className="text-sm">{team.captain}</div>
+                          <div className="text-sm">{team.members ? team.members.length : 0}/8</div>
+                          <div className="text-sm">
+                            {team.neededPlayers} player{team.neededPlayers !== 1 ? "s" : ""}
+                          </div>
+                          <div className="flex justify-end gap-2">
+                            <IncompleteTeamActions teamId={team._id} onView={handleViewTeam} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Mobile view */}
+                  <div className="md:hidden space-y-4">
+                    {incompleteTeams.map((team) => (
+                      <div key={team._id} className="border rounded-lg p-4">
+                        <div className="flex items-center gap-3 mb-3">
                           <Avatar className="h-10 w-10">
                             <AvatarImage
                               src={`/placeholder.svg?height=40&width=40&text=${team.name.substring(0, 2)}`}
@@ -163,70 +312,20 @@ export default function TeamsClientPage() {
                             <p className="text-sm text-muted-foreground">Captain: {team.captain}</p>
                           </div>
                         </div>
-                        <Badge variant={index < 3 ? "default" : "outline"} className="text-xs">
-                          #{index + 1}
-                        </Badge>
-                      </div>
 
-                      <div className="grid grid-cols-2 gap-y-2 mb-3">
-                        <div>
-                          <p className="text-xs text-muted-foreground">Members</p>
-                          <p className="text-sm">{team.members.length}/8</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Score</p>
-                          <p className="text-sm">{team.score}</p>
-                        </div>
-                      </div>
-
-                      <div className="flex justify-end gap-2">
-                        <ActionButtons teamId={team._id} onView={handleViewTeam} />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="incomplete" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Incomplete Teams</CardTitle>
-              <CardDescription>Teams that need additional members</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-8">
-                {/* Desktop view */}
-                <div className="hidden md:block rounded-md border">
-                  <div className="grid grid-cols-5 p-4 font-medium">
-                    <div>Team</div>
-                    <div>Captain</div>
-                    <div>Members</div>
-                    <div>Needed</div>
-                    <div className="text-right">Actions</div>
-                  </div>
-                  <div className="divide-y">
-                    {incompleteTeams.map((team) => (
-                      <div key={team._id} className="grid grid-cols-5 p-4 items-center">
-                        <div className="flex items-center gap-3">
-                          <Avatar className="h-8 w-8">
-                            <AvatarImage
-                              src={`/placeholder.svg?height=32&width=32&text=${team.name.substring(0, 2)}`}
-                              alt={team.name}
-                            />
-                            <AvatarFallback>{team.name.substring(0, 2)}</AvatarFallback>
-                          </Avatar>
+                        <div className="grid grid-cols-2 gap-y-2 mb-3">
                           <div>
-                            <p className="text-sm font-medium">{team.name}</p>
+                            <p className="text-xs text-muted-foreground">Members</p>
+                            <p className="text-sm">{team.members ? team.members.length : 0}/8</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-muted-foreground">Needed</p>
+                            <p className="text-sm">
+                              {team.neededPlayers} player{team.neededPlayers !== 1 ? "s" : ""}
+                            </p>
                           </div>
                         </div>
-                        <div className="text-sm">{team.captain}</div>
-                        <div className="text-sm">{team.members.length}/8</div>
-                        <div className="text-sm">
-                          {8 - team.members.length} player{8 - team.members.length !== 1 ? "s" : ""}
-                        </div>
+
                         <div className="flex justify-end gap-2">
                           <IncompleteTeamActions teamId={team._id} onView={handleViewTeam} />
                         </div>
@@ -234,45 +333,12 @@ export default function TeamsClientPage() {
                     ))}
                   </div>
                 </div>
-
-                {/* Mobile view */}
-                <div className="md:hidden space-y-4">
-                  {incompleteTeams.map((team) => (
-                    <div key={team._id} className="border rounded-lg p-4">
-                      <div className="flex items-center gap-3 mb-3">
-                        <Avatar className="h-10 w-10">
-                          <AvatarImage
-                            src={`/placeholder.svg?height=40&width=40&text=${team.name.substring(0, 2)}`}
-                            alt={team.name}
-                          />
-                          <AvatarFallback>{team.name.substring(0, 2)}</AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <p className="font-medium">{team.name}</p>
-                          <p className="text-sm text-muted-foreground">Captain: {team.captain}</p>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-y-2 mb-3">
-                        <div>
-                          <p className="text-xs text-muted-foreground">Members</p>
-                          <p className="text-sm">{team.members.length}/8</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Needed</p>
-                          <p className="text-sm">
-                            {8 - team.members.length} player{8 - team.members.length !== 1 ? "s" : ""}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="flex justify-end gap-2">
-                        <IncompleteTeamActions teamId={team._id} onView={handleViewTeam} />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              ) : (
+                <EmptyStateMessage 
+                  title="No Incomplete Teams" 
+                  description="All teams are fully staffed or no teams have been created yet." 
+                />
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -281,43 +347,87 @@ export default function TeamsClientPage() {
           <Card>
             <CardHeader>
               <CardTitle>Captain Voting</CardTitle>
-              <CardDescription>Teams currently in the process of voting for a captain</CardDescription>
+              <CardDescription>Teams currently in the captain voting process</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-8">
-                {/* Desktop view */}
-                <div className="hidden md:block rounded-md border">
-                  <div className="grid grid-cols-5 p-4 font-medium">
-                    <div>Team</div>
-                    <div>Members</div>
-                    <div>Votes Cast</div>
-                    <div>Status</div>
-                    <div className="text-right">Actions</div>
-                  </div>
-                  <div className="divide-y">
-                    {teamsInVoting.map((team, index) => (
-                      <div key={team._id} className="grid grid-cols-5 p-4 items-center">
-                        <div className="flex items-center gap-3">
-                          <Avatar className="h-8 w-8">
-                            <AvatarImage
-                              src={`/placeholder.svg?height=32&width=32&text=${team.name.substring(0, 2)}`}
-                              alt={team.name}
-                            />
-                            <AvatarFallback>{team.name.substring(0, 2)}</AvatarFallback>
-                          </Avatar>
+              {teamsInVoting.length > 0 ? (
+                <div className="space-y-8">
+                  {/* Desktop view */}
+                  <div className="hidden md:block rounded-md border">
+                    <div className="grid grid-cols-5 p-4 font-medium">
+                      <div>Team</div>
+                      <div>Members</div>
+                      <div>Votes Cast</div>
+                      <div>Status</div>
+                      <div className="text-right">Actions</div>
+                    </div>
+                    <div className="divide-y">
+                      {teamsInVoting.map((team, index) => (
+                        <div key={team._id} className="grid grid-cols-5 p-4 items-center">
+                          <div className="flex items-center gap-3">
+                            <Avatar className="h-8 w-8">
+                              <AvatarImage
+                                src={`/placeholder.svg?height=32&width=32&text=${team.name.substring(0, 2)}`}
+                                alt={team.name}
+                              />
+                              <AvatarFallback>{team.name.substring(0, 2)}</AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <p className="text-sm font-medium">{team.name}</p>
+                            </div>
+                          </div>
+                          <div className="text-sm">{team.members ? team.members.length : 0}</div>
+                          <div className="text-sm">
+                            {team.votesCast}/{team.totalMembers}
+                          </div>
                           <div>
-                            <p className="text-sm font-medium">{team.name}</p>
+                            <Badge variant="outline" className="text-xs">
+                              {team.status === "in_progress" ? "In Progress" : team.status}
+                            </Badge>
+                          </div>
+                          <div className="flex justify-end gap-2">
+                            <CaptainVoteActions teamId={team._id} onView={handleViewTeam} />
                           </div>
                         </div>
-                        <div className="text-sm">{team.members}/8</div>
-                        <div className="text-sm">
-                          {team.votesCast}/{team.members}
-                        </div>
-                        <div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Mobile view */}
+                  <div className="md:hidden space-y-4">
+                    {teamsInVoting.map((team) => (
+                      <div key={team._id} className="border rounded-lg p-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-3">
+                            <Avatar className="h-10 w-10">
+                              <AvatarImage
+                                src={`/placeholder.svg?height=40&width=40&text=${team.name.substring(0, 2)}`}
+                                alt={team.name}
+                              />
+                              <AvatarFallback>{team.name.substring(0, 2)}</AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <p className="font-medium">{team.name}</p>
+                            </div>
+                          </div>
                           <Badge variant="outline" className="text-xs">
                             {team.status === "in_progress" ? "In Progress" : team.status}
                           </Badge>
                         </div>
+
+                        <div className="grid grid-cols-2 gap-y-2 mb-3">
+                          <div>
+                            <p className="text-xs text-muted-foreground">Members</p>
+                            <p className="text-sm">{team.members ? team.members.length : 0}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-muted-foreground">Votes Cast</p>
+                            <p className="text-sm">
+                              {team.votesCast}/{team.totalMembers}
+                            </p>
+                          </div>
+                        </div>
+
                         <div className="flex justify-end gap-2">
                           <CaptainVoteActions teamId={team._id} onView={handleViewTeam} />
                         </div>
@@ -325,49 +435,12 @@ export default function TeamsClientPage() {
                     ))}
                   </div>
                 </div>
-
-                {/* Mobile view */}
-                <div className="md:hidden space-y-4">
-                  {teamsInVoting.map((team) => (
-                    <div key={team._id} className="border rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-3">
-                          <Avatar className="h-10 w-10">
-                            <AvatarImage
-                              src={`/placeholder.svg?height=40&width=40&text=${team.name.substring(0, 2)}`}
-                              alt={team.name}
-                            />
-                            <AvatarFallback>{team.name.substring(0, 2)}</AvatarFallback>
-                          </Avatar>
-                          <div>
-                            <p className="font-medium">{team.name}</p>
-                          </div>
-                        </div>
-                        <Badge variant="outline" className="text-xs">
-                          {team.status === "in_progress" ? "In Progress" : team.status}
-                        </Badge>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-y-2 mb-3">
-                        <div>
-                          <p className="text-xs text-muted-foreground">Members</p>
-                          <p className="text-sm">{team.members}/8</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Votes Cast</p>
-                          <p className="text-sm">
-                            {team.votesCast}/{team.members}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="flex justify-end gap-2">
-                        <CaptainVoteActions teamId={team._id} onView={handleViewTeam} />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              ) : (
+                <EmptyStateMessage 
+                  title="No Teams In Voting" 
+                  description="There are no teams currently in the captain voting process." 
+                />
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -379,9 +452,10 @@ export default function TeamsClientPage() {
   )
 }
 
-function TeamCard({ team, rank, onView }: { team: any; rank: number; onView: (teamId: string) => void }) {
-  const memberCount = team.members.length
-  const maxMembers = 8
+function TeamCard({ team, rank, onView }: { team: Team; rank: number; onView: (teamId: string) => void }) {
+  const members = team.members || [];
+  const memberCount = Array.isArray(members) ? members.length : 0;
+  const maxMembers = 8;
 
   // Choose icon based on rank
   const getIcon = () => {
@@ -502,23 +576,6 @@ function CaptainVoteActions({ teamId, onView }: { teamId: string; onView: (teamI
         View
       </Button>
     </>
-  )
-}
-
-// Client components for RBAC
-function AdminOnlyButton() {
-  const { data: session } = useSession()
-  const user = session?.user
-
-  if (user?.role !== "admin") return null
-
-  return (
-    <div className="flex items-center gap-2">
-      <Button>
-        <Plus className="h-4 w-4 mr-2" />
-        Create Team
-      </Button>
-    </div>
   )
 }
 

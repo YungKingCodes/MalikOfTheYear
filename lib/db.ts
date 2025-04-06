@@ -65,6 +65,12 @@ export async function findDocument(collectionName: string, query: Record<string,
     // Convert collectionName to proper Prisma model name
     const modelName = collectionName.charAt(0).toUpperCase() + collectionName.slice(1, -1);
     
+    // Convert _id to id for Prisma compatibility
+    if (query._id) {
+      query.id = query._id;
+      delete query._id;
+    }
+    
     // @ts-ignore - dynamic model access
     return await db[modelName.toLowerCase()].findFirst({
       where: query
@@ -82,7 +88,11 @@ export async function updateDocument(collectionName: string, query: Record<strin
     const modelName = collectionName.charAt(0).toUpperCase() + collectionName.slice(1, -1);
     
     // Extract the ID from the query, as Prisma update requires an ID
-    const id = query.id || query._id;
+    let id = query.id;
+    if (query._id) {
+      id = query._id;
+    }
+    
     if (!id) {
       throw new Error("ID is required for update operations");
     }

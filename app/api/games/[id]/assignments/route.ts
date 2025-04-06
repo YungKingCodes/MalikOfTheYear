@@ -1,32 +1,115 @@
 import { NextResponse } from "next/server"
+import { auth } from "@/auth"
+import { db } from "@/lib/db"
 
-// Mock player assignments data
-const playerAssignments = {
-  game1: [
-    { playerId: "user1", playerName: "Sarah Johnson", teamId: "team1", confirmed: true },
-    { playerId: "user4", playerName: "Emily Rodriguez", teamId: "team1", confirmed: true },
-    { playerId: "user6", playerName: "Player 6", teamId: "team1", confirmed: false },
-    { playerId: "user8", playerName: "Player 8", teamId: "team1", confirmed: true },
-    { playerId: "user10", playerName: "Player 10", teamId: "team1", confirmed: true },
-  ],
-  game2: [
-    { playerId: "user2", playerName: "Michael Chen", teamId: "team2", confirmed: true },
-    { playerId: "user5", playerName: "David Kim", teamId: "team2", confirmed: true },
-    { playerId: "user7", playerName: "Player 7", teamId: "team2", confirmed: true },
-    { playerId: "user9", playerName: "Player 9", teamId: "team2", confirmed: false },
-  ],
-  game3: [],
-  game4: [],
-  game5: [],
-  game6: [],
+interface PlayerAssignment {
+  playerId: string
+  playerName: string | null
+  teamId: string
+  confirmed: boolean
 }
 
 export async function GET(request: Request, { params }: { params: { id: string } }) {
-  const gameId = params.id
+  try {
+    // Get the current user's session
+    const session = await auth()
+    
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+    
+    const gameId = params.id
+    
+    // Get game participations for this game
+    const participations = await db.gameParticipation.findMany({
+      where: {
+        gameId: gameId
+      },
+      include: {
+        player: {
+          select: {
+            id: true,
+            name: true
+          }
+        }
+      }
+    })
+    
+    // Transform the data to match the expected format
+    const playerAssignments: PlayerAssignment[] = participations.map(participation => ({
+      playerId: participation.playerId,
+      playerName: participation.player.name,
+      teamId: participation.teamId,
+      confirmed: participation.status === 'confirmed'
+    }))
+    
+    return NextResponse.json(playerAssignments)
+  } catch (error) {
+    console.error("Error fetching game assignments:", error)
+    return NextResponse.json({ error: "Failed to fetch game assignments" }, { status: 500 })
+  }
+}
 
-  // Return empty array if no assignments exist
-  const assignments = playerAssignments[gameId as keyof typeof playerAssignments] || []
-
-  return NextResponse.json(assignments)
+export async function POST(request: Request, { params }: { params: { id: string } }) {
+  try {
+    const session = await auth()
+    
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+    
+    // Only team captains or admins can assign players
+    if (!session.user.role || (session.user.role !== 'captain' && session.user.role !== 'admin')) {
+      return NextResponse.json({ error: "Unauthorized: Only team captains and admins can assign players" }, { status: 403 })
+    }
+    
+    const gameId = params.id
+    const { playerIds, teamId } = await request.json()
+    
+    if (!Array.isArray(playerIds) || !teamId) {
+      return NextResponse.json({ error: "Invalid request data" }, { status: 400 })
+    }
+    
+    // Validate that the user is the captain of this team or an admin
+    if (session.user.role === 'captain') {
+      const team = await db.team.findUnique({
+        where: {
+          id: teamId,
+          captainId: session.user.id
+        }
+      })
+      
+      if (!team) {
+        return NextResponse.json({ error: "You are not the captain of this team" }, { status: 403 })
+      }
+    }
+    
+    // Remove existing assignments for this team and game
+    await db.gameParticipation.deleteMany({
+      where: {
+        gameId: gameId,
+        teamId: teamId
+      }
+    })
+    
+    // Create new assignments
+    const assignments = await Promise.all(
+      playerIds.map(async (playerId: string) => {
+        return db.gameParticipation.create({
+          data: {
+            gameId: gameId,
+            playerId: playerId,
+            teamId: teamId,
+            status: 'pending'
+          }
+        })
+      })
+    )
+    
+    return NextResponse.json({ success: true, count: assignments.length })
+  } catch (error) {
+    console.error("Error assigning players to game:", error)
+    return NextResponse.json({ error: "Failed to assign players" }, { status: 500 })
+  }
 }
 

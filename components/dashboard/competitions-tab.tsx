@@ -1,14 +1,11 @@
 "use client"
 
-import type React from "react"
-
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Plus, Calendar, Trophy, Users, Crown } from "lucide-react"
-import { getCompetitions } from "@/lib/data"
 import { useSession } from "next-auth/react"
 import {
   Dialog,
@@ -21,19 +18,27 @@ import {
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { Skeleton } from "@/components/ui/skeleton"
+import { getCompetitions } from "@/app/actions/competitions"
+
+interface Team {
+  id: string
+  name: string
+}
 
 interface Competition {
-  _id: string
+  id: string
   name: string
   year: number
   startDate: string
   endDate: string
   status: string
   description: string
-  teams: string[]
-  games: string[]
-  winner?: string
-  goat?: string
+  teams: Team[]
+  teamIds: string[]
+  gameIds: string[]
+  winnerId?: string | null
+  goatId?: string | null
 }
 
 export function CompetitionsTab() {
@@ -62,7 +67,7 @@ export function CompetitionsTab() {
   }, [])
 
   if (loading) {
-    return <div className="py-4 text-center text-muted-foreground">Loading competitions...</div>
+    return <CompetitionsTabSkeleton />
   }
 
   if (error) {
@@ -81,7 +86,7 @@ export function CompetitionsTab() {
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {competitions.map((competition) => (
-          <CompetitionCard key={competition._id} competition={competition} isAdmin={isAdmin} />
+          <CompetitionCard key={competition.id} competition={competition} isAdmin={isAdmin} />
         ))}
       </div>
 
@@ -104,27 +109,23 @@ export function CompetitionsTab() {
                 {competitions
                   .sort((a, b) => b.year - a.year)
                   .map((competition) => (
-                    <div key={competition._id} className="grid grid-cols-5 p-4">
+                    <div key={competition.id} className="grid grid-cols-5 p-4">
                       <div className="font-medium">{competition.year}</div>
                       <div>{competition.name}</div>
-                      <div>{competition.teams.length}</div>
+                      <div>{competition.teams?.length || 0}</div>
                       <div>
                         {competition.status === "active"
                           ? "In Progress"
-                          : competition.winner === "team1"
-                            ? "Mountain Goats"
-                            : competition.winner === "team2"
-                              ? "Royal Rams"
-                              : "TBD"}
+                          : competition.winnerId
+                            ? "Winner Team"
+                            : "TBD"}
                       </div>
                       <div>
                         {competition.status === "active"
                           ? "TBD"
-                          : competition.goat === "user1"
-                            ? "Sarah Johnson"
-                            : competition.goat === "user2"
-                              ? "Michael Chen"
-                              : "TBD"}
+                          : competition.goatId
+                            ? "GOAT Player" 
+                            : "TBD"}
                       </div>
                     </div>
                   ))}
@@ -178,7 +179,7 @@ function CompetitionCard({ competition, isAdmin }: { competition: Competition; i
               <div className="flex items-center gap-2">
                 <Users className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm">
-                  {competition.teams.length} Teams, {competition.teams.length * 8} Players
+                  {competition.teams?.length || 0} Teams, {(competition.teams?.length || 0) * 8} Players
                 </span>
               </div>
             </>
@@ -188,22 +189,18 @@ function CompetitionCard({ competition, isAdmin }: { competition: Competition; i
                 <Trophy className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm">
                   Winner:{" "}
-                  {competition.winner === "team1"
-                    ? "Mountain Goats"
-                    : competition.winner === "team2"
-                      ? "Royal Rams"
-                      : "N/A"}
+                  {competition.winnerId
+                    ? "Winner Team"
+                    : "N/A"}
                 </span>
               </div>
               <div className="flex items-center gap-2">
                 <Crown className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm">
                   GOAT:{" "}
-                  {competition.goat === "user1"
-                    ? "Sarah Johnson"
-                    : competition.goat === "user2"
-                      ? "Michael Chen"
-                      : "N/A"}
+                  {competition.goatId
+                    ? "GOAT Player"
+                    : "N/A"}
                 </span>
               </div>
             </>
@@ -212,7 +209,7 @@ function CompetitionCard({ competition, isAdmin }: { competition: Competition; i
       </CardContent>
       <div className="p-6 pt-0 flex gap-2">
         <Button asChild variant="outline" className="flex-1">
-          <a href={`/competitions/${competition.year}`}>View</a>
+          <a href={`/competitions/${competition.id}`}>View</a>
         </Button>
         {isAdmin && (
           <Button variant="ghost" className="flex-1">
@@ -300,6 +297,67 @@ function CreateCompetitionDialog() {
         </form>
       </DialogContent>
     </Dialog>
+  )
+}
+
+function CompetitionsTabSkeleton() {
+  return (
+    <>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
+        <div className="space-y-1">
+          <Skeleton className="h-8 w-48" />
+          <Skeleton className="h-4 w-80" />
+        </div>
+        <Skeleton className="h-10 w-40" />
+      </div>
+
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mb-6">
+        {[1, 2, 3].map((i) => (
+          <Card key={i} className="overflow-hidden">
+            <Skeleton className="h-48 w-full" />
+            <CardHeader>
+              <Skeleton className="h-6 w-full max-w-[180px]" />
+              <Skeleton className="h-4 w-full" />
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-full" />
+              </div>
+            </CardContent>
+            <div className="p-6 pt-0">
+              <Skeleton className="h-10 w-full" />
+            </div>
+          </Card>
+        ))}
+      </div>
+
+      <Card>
+        <CardHeader>
+          <Skeleton className="h-6 w-48" />
+          <Skeleton className="h-4 w-80" />
+        </CardHeader>
+        <CardContent>
+          <div className="rounded-md border">
+            <div className="grid grid-cols-5 p-4">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <Skeleton key={i} className="h-5 w-16" />
+              ))}
+            </div>
+            <div className="divide-y">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="grid grid-cols-5 p-4">
+                  {[1, 2, 3, 4, 5].map((j) => (
+                    <Skeleton key={j} className="h-4 w-16" />
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </>
   )
 }
 

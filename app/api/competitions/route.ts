@@ -1,29 +1,27 @@
 import { NextResponse } from "next/server"
-import { findDocuments } from "@/lib/db"
+import { db } from "@/lib/db"
 
-export async function GET(request: Request) {
+export async function GET() {
   try {
-    // Get query parameters
-    const { searchParams } = new URL(request.url)
-    const status = searchParams.get("status")
-    const year = searchParams.get("year")
-
-    // Build query
-    const query: any = {}
-    if (status) {
-      query.status = status
-    }
-    if (year) {
-      query.year = Number.parseInt(year)
-    }
-
-    // Get competitions from database
-    const competitions = await findDocuments("competitions", query, { sort: { year: -1 } })
+    const competitions = await db.competition.findMany({
+      orderBy: {
+        year: "desc"
+      },
+      select: {
+        id: true,
+        name: true,
+        year: true,
+        status: true
+      }
+    })
 
     return NextResponse.json(competitions)
   } catch (error) {
     console.error("Error fetching competitions:", error)
-    return NextResponse.json({ error: "Failed to fetch competitions" }, { status: 500 })
+    return NextResponse.json(
+      { error: "Failed to fetch competitions" },
+      { status: 500 }
+    )
   }
 }
 

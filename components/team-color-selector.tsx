@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useSession } from "next-auth/react"
 import { useToast } from "@/hooks/use-toast"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Paintbrush } from "lucide-react"
 
 interface TeamColor {
   id: string
@@ -16,7 +18,11 @@ interface TeamColor {
   teamId?: string
 }
 
-export function TeamColorSelector() {
+interface TeamColorSelectorProps {
+  competitionId: string;
+}
+
+export function TeamColorSelector({ competitionId }: TeamColorSelectorProps) {
   const { data: session } = useSession()
   const { toast } = useToast()
   const [colors, setColors] = useState<TeamColor[]>([

@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { ThumbsUp, ThumbsDown, CalendarDays } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
 
 interface FeedbackItem {
   id: string
@@ -17,86 +18,45 @@ interface FeedbackItem {
   accolades: string[]
 }
 
-export function PlayerFeedback() {
+export function PlayerFeedback({ playerId }: { playerId?: string }) {
   const [feedback, setFeedback] = useState<FeedbackItem[]>([])
   const [loading, setLoading] = useState(true)
+  const { toast } = useToast()
 
   useEffect(() => {
     const loadFeedback = async () => {
       setLoading(true)
       try {
-        // Simulate API call
-        await new Promise((resolve) => setTimeout(resolve, 500))
-
-        // Mock data
-        const mockFeedback: FeedbackItem[] = [
-          {
-            id: "1",
-            gameId: "game1",
-            gameName: "Basketball Tournament",
-            gameDate: "2025-06-15T14:00:00Z",
-            captainId: "captain1",
-            captainName: "Sarah Johnson",
-            rating: "positive",
-            comment: "Excellent performance! Your three-point shooting was crucial to our victory.",
-            accolades: ["Sharpshooter", "Team Player"],
-          },
-          {
-            id: "2",
-            gameId: "game2",
-            gameName: "Soccer Match",
-            gameDate: "2025-06-10T15:30:00Z",
-            captainId: "captain1",
-            captainName: "Sarah Johnson",
-            rating: "positive",
-            comment: "Great defensive work throughout the game. You prevented at least 3 goals!",
-            accolades: ["Defensive Wall", "Tireless Runner"],
-          },
-          {
-            id: "3",
-            gameId: "game3",
-            gameName: "Volleyball Tournament",
-            gameDate: "2025-06-05T13:00:00Z",
-            captainId: "captain1",
-            captainName: "Sarah Johnson",
-            rating: "negative",
-            comment: "Seemed distracted during the game. We need more focus in future matches.",
-            accolades: [],
-          },
-          {
-            id: "4",
-            gameId: "game4",
-            gameName: "Relay Race",
-            gameDate: "2025-05-25T10:00:00Z",
-            captainId: "captain1",
-            captainName: "Sarah Johnson",
-            rating: "positive",
-            comment: "Your leg of the relay was the fastest! Great speed and smooth handoff.",
-            accolades: ["Speed Demon", "Clutch Performer"],
-          },
-          {
-            id: "5",
-            gameId: "game5",
-            gameName: "Strategy Challenge",
-            gameDate: "2025-05-20T16:00:00Z",
-            captainId: "captain1",
-            captainName: "Sarah Johnson",
-            rating: "positive",
-            comment: "Your strategic thinking helped us solve the final puzzle. Well done!",
-            accolades: ["Mastermind"],
-          },
-        ]
-
-        setFeedback(mockFeedback)
+        // Build URL with optional playerId parameter
+        const url = playerId 
+          ? `/api/player-feedback?playerId=${playerId}`
+          : '/api/player-feedback'
+          
+        const response = await fetch(url)
+        
+        if (!response.ok) {
+          throw new Error('Failed to load feedback')
+        }
+        
+        const data = await response.json()
+        setFeedback(data)
       } catch (error) {
         console.error("Failed to load feedback:", error)
+        toast({
+          title: "Error",
+          description: "Failed to load feedback data. Please try again.",
+          variant: "destructive",
+        })
+        
+        // Fallback to empty array
+        setFeedback([])
       } finally {
         setLoading(false)
       }
     }
 
     loadFeedback()
-  }, [])
+  }, [playerId, toast])
 
   if (loading) {
     return (
@@ -180,40 +140,48 @@ export function PlayerFeedback() {
       </Card>
 
       <div className="space-y-4">
-        {feedback.map((item) => (
-          <Card key={item.id} className={item.rating === "positive" ? "border-green-200" : "border-red-200"}>
-            <CardHeader className="pb-2">
-              <div className="flex justify-between items-start">
-                <CardTitle className="text-lg">{item.gameName}</CardTitle>
-                {item.rating === "positive" ? (
-                  <ThumbsUp className="h-5 w-5 text-green-500" />
-                ) : (
-                  <ThumbsDown className="h-5 w-5 text-red-500" />
-                )}
-              </div>
-              <CardDescription className="flex items-center gap-1">
-                <CalendarDays className="h-3 w-3" />
-                {new Date(item.gameDate).toLocaleDateString("en-US", {
-                  year: "numeric",
-                  month: "long",
-                  day: "numeric",
-                })}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm mb-4">{item.comment}</p>
-              {item.accolades.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {item.accolades.map((accolade) => (
-                    <Badge key={accolade} variant="outline">
-                      {accolade}
-                    </Badge>
-                  ))}
-                </div>
-              )}
+        {feedback.length === 0 ? (
+          <Card>
+            <CardContent className="p-6 text-center">
+              <p className="text-muted-foreground">No feedback available yet</p>
             </CardContent>
           </Card>
-        ))}
+        ) : (
+          feedback.map((item) => (
+            <Card key={item.id} className={item.rating === "positive" ? "border-green-200" : "border-red-200"}>
+              <CardHeader className="pb-2">
+                <div className="flex justify-between items-start">
+                  <CardTitle className="text-lg">{item.gameName}</CardTitle>
+                  {item.rating === "positive" ? (
+                    <ThumbsUp className="h-5 w-5 text-green-500" />
+                  ) : (
+                    <ThumbsDown className="h-5 w-5 text-red-500" />
+                  )}
+                </div>
+                <CardDescription className="flex items-center gap-1">
+                  <CalendarDays className="h-3 w-3" />
+                  {new Date(item.gameDate).toLocaleDateString("en-US", {
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                  })}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm mb-4">{item.comment}</p>
+                {item.accolades.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {item.accolades.map((accolade) => (
+                      <Badge key={accolade} variant="outline">
+                        {accolade}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          ))
+        )}
       </div>
     </div>
   )

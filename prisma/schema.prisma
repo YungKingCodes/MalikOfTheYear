@@ -71,6 +71,15 @@ model User {
   sessions         Session[]
   team             Team?       @relation("TeamMembers", fields: [teamId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   captainedTeams   Team[]      @relation("TeamCaptain")
+  
+  // New relations for suggested games
+  suggestedGames   SuggestedGame[]
+  gameVotes        SuggestedGameVote[]
+  feedback         Feedback[]
+  feedbackVotes    FeedbackVote[]
+  
+  // New relation for competition registrations
+  competitions     UserCompetition[]
 }
 
 model Team {
@@ -88,8 +97,7 @@ model Team {
   captain       User?        @relation("TeamCaptain", fields: [captainId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   competition   Competition  @relation(fields: [competitionId], references: [id])
   members       User[]       @relation("TeamMembers")
-  homeGames     Game[]       @relation("Team1Games")
-  awayGames     Game[]       @relation("Team2Games")
+  gameParticipations GameParticipation[]
 }
 
 model Competition {
@@ -98,7 +106,7 @@ model Competition {
   year        Int
   startDate   DateTime
   endDate     DateTime
-  status      String
+  status      String      // "active" | "upcoming" | "inactive" | "completed"
   description String
   winnerId    String?     @db.ObjectId
   goatId      String?     @db.ObjectId
@@ -109,24 +117,221 @@ model Competition {
   // Relations
   teams       Team[]
   games       Game[]
+  eventManagement EventManagement?
+  phases      CompetitionPhase[]
+  
+  // New relation for registered users
+  registeredUsers UserCompetition[]
 }
 
 model Game {
   id            String       @id @default(auto()) @map("_id") @db.ObjectId
   name          String
+  description   String       @default("")
   type          String
-  date          DateTime
-  team1Id       String?      @db.ObjectId
-  team2Id       String?      @db.ObjectId
-  score1        Int?
-  score2        Int?
+  playerCount   Int          @default(0)
+  duration      Int          @default(30)
+  date          DateTime?
   status        String
-  location      String
-  pointsValue   Int
-  competitionId String       @db.ObjectId
+  location      String?
+  pointsValue   Int          @default(10)
+  competitionId String?      @db.ObjectId
+  category      String       @default("Other")
+  backupPlan    String?
+  multiTeam     Boolean      @default(false)  // Flag indicating if more than 2 teams can participate
+  maxTeams      Int?         // Maximum number of teams that can participate (null for unlimited)
+  difficulty    String       @default("Medium") // "Easy", "Medium", "Hard"
+  winCondition  String       @default("Score") // "Score" or "Elimination"
+  materialsNeeded String?
+  cost          Float?       // Cost of materials/equipment needed
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  
+  // Relations
+  competition   Competition? @relation(fields: [competitionId], references: [id])
+  participants  GameParticipation[]
+}
+
+// New model for game participation
+model GameParticipation {
+  id            String       @id @default(auto()) @map("_id") @db.ObjectId
+  gameId        String       @db.ObjectId
+  teamId        String       @db.ObjectId
+  score         Int?
+  rank          Int?         // Final position/rank in the game
+  status        String       @default("registered") // "registered", "confirmed", "completed"
+  createdAt     DateTime     @default(now())
+  
+  // Relations
+  game          Game         @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  team          Team         @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  
+  @@unique([gameId, teamId])
+}
+
+// New model for Event Management
+model EventManagement {
+  id            String       @id @default(auto()) @map("_id") @db.ObjectId
+  competitionId String       @db.ObjectId @unique
+  currentPhaseId String?     @db.ObjectId @unique // Reference to the current active phase
+  settings      Json         // General event settings
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
   
   // Relations
   competition   Competition  @relation(fields: [competitionId], references: [id])
-  team1         Team?        @relation("Team1Games", fields: [team1Id], references: [id])
-  team2         Team?        @relation("Team2Games", fields: [team2Id], references: [id])
+  currentPhase  CompetitionPhase? @relation("CurrentPhase", fields: [currentPhaseId], references: [id])
+}
+
+// New model for Competition Phases
+model CompetitionPhase {
+  id            String       @id @default(auto()) @map("_id") @db.ObjectId
+  name          String       // e.g., "Registration", "Team Formation", etc.
+  description   String?
+  startDate     DateTime
+  endDate       DateTime
+  status        String       // "inactive", "in-progress", "completed"
+  type          String       // "registration", "team_formation", "captain_voting", "competition", "awards"
+  order         Int          // Sequence order in the competition
+  competitionId String       @db.ObjectId
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  
+  // Relations
+  competition   Competition  @relation(fields: [competitionId], references: [id])
+  eventManagement EventManagement? @relation("CurrentPhase")
+}
+
+// Model for suggested games from players
+model SuggestedGame {
+  id              String              @id @default(auto()) @map("_id") @db.ObjectId
+  name            String
+  description     String
+  type            String
+  category        String              @default("Other")
+  playerCount     Int                 @default(0)
+  duration        Int                 @default(30)
+  backupPlan      String?
+  difficulty      String              @default("Medium") // "Easy", "Medium", "Hard"
+  winCondition    String              @default("Score") // "Score" or "Elimination"
+  materialsNeeded String?
+  cost            Float?              // Cost of materials/equipment needed
+  votes           Int                 @default(0)
+  suggestedById   String              @db.ObjectId
+  createdAt       DateTime            @default(now())
+  
+  // Relations
+  suggestedBy     User                @relation(fields: [suggestedById], references: [id])
+  userVotes       SuggestedGameVote[]
+}
+
+// Model for tracking user votes on suggested games
+model SuggestedGameVote {
+  id              String        @id @default(auto()) @map("_id") @db.ObjectId
+  suggestedGameId String        @db.ObjectId
+  userId          String        @db.ObjectId
+  createdAt       DateTime      @default(now())
+  
+  // Relations
+  suggestedGame   SuggestedGame @relation(fields: [suggestedGameId], references: [id], onDelete: Cascade)
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Unique constraint to ensure a user can only vote once
+  @@unique([suggestedGameId, userId])
+}
+
+// Model for user feedback
+model Feedback {
+  id              String         @id @default(auto()) @map("_id") @db.ObjectId
+  title           String
+  description     String
+  category        String         // "feature", "bug", "improvement"
+  status          String         @default("open") // "open", "in-progress", "completed", "rejected"
+  votes           Int            @default(0)
+  userId          String         @db.ObjectId
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  
+  // Relations
+  user            User           @relation(fields: [userId], references: [id])
+  userVotes       FeedbackVote[]
+}
+
+// Model for tracking user votes on feedback
+model FeedbackVote {
+  id              String        @id @default(auto()) @map("_id") @db.ObjectId
+  feedbackId      String        @db.ObjectId
+  userId          String        @db.ObjectId
+  createdAt       DateTime      @default(now())
+  
+  // Relations
+  feedback        Feedback      @relation(fields: [feedbackId], references: [id], onDelete: Cascade)
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Unique constraint to ensure a user can only vote once
+  @@unique([feedbackId, userId])
+}
+
+// Settings model for system-wide settings
+model Settings {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  data      Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// New model for tracking user competition registrations
+model UserCompetition {
+  id            String     @id @default(auto()) @map("_id") @db.ObjectId
+  userId        String     @db.ObjectId
+  competitionId String     @db.ObjectId
+  status        String     @default("registered") // "registered", "active", "completed"
+  registeredAt  DateTime   @default(now())
+  
+  // Relations
+  user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, competitionId])
+}
+
+// Model for player self-scoring
+model PlayerSelfScore {
+  id              String       @id @default(auto()) @map("_id") @db.ObjectId
+  userId          String       @db.ObjectId
+  phaseId         String       @db.ObjectId
+  competitionId   String       @db.ObjectId
+  scores          Json         // Scores for different categories
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  
+  @@unique([userId, phaseId])
+}
+
+// Model for player ratings (one player rating another)
+model PlayerRating {
+  id              String       @id @default(auto()) @map("_id") @db.ObjectId
+  raterId         String       @db.ObjectId  // User who is rating
+  ratedId         String       @db.ObjectId  // User being rated
+  phaseId         String       @db.ObjectId
+  competitionId   String       @db.ObjectId
+  scores          Json         // Scores for different categories
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  
+  @@unique([raterId, ratedId, phaseId])
+}
+
+// Model for captain voting
+model CaptainVote {
+  id              String       @id @default(auto()) @map("_id") @db.ObjectId
+  voterId         String       @db.ObjectId  // User who is voting
+  captainId       String       @db.ObjectId  // User being voted for as captain
+  teamId          String       @db.ObjectId  // Team the vote is for
+  phaseId         String       @db.ObjectId  // The voting phase
+  competitionId   String       @db.ObjectId  // The competition
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  
+  @@unique([voterId, phaseId, teamId])
 }

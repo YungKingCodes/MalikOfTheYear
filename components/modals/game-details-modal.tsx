@@ -6,8 +6,8 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { CalendarIcon, MapPinIcon, Trophy, Clock } from "lucide-react"
-import { getGameDetails, getTeamName } from "@/lib/data"
+import { CalendarIcon, MapPinIcon, Trophy, Clock, Users } from "lucide-react"
+import { getGameById } from "@/app/actions/games"
 import { Separator } from "@/components/ui/separator"
 
 interface GameDetailsModalProps {
@@ -20,8 +20,6 @@ export function GameDetailsModal({ gameId, open, onOpenChange }: GameDetailsModa
   const [game, setGame] = useState<any | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [team1Name, setTeam1Name] = useState<string>("")
-  const [team2Name, setTeam2Name] = useState<string>("")
 
   useEffect(() => {
     async function loadGameDetails() {
@@ -31,18 +29,8 @@ export function GameDetailsModal({ gameId, open, onOpenChange }: GameDetailsModa
       setError(null)
 
       try {
-        const gameData = await getGameDetails(gameId)
+        const gameData = await getGameById(gameId)
         setGame(gameData)
-
-        // Get team names if they exist
-        if (gameData.team1) {
-          const name = await getTeamName(gameData.team1)
-          setTeam1Name(name)
-        }
-        if (gameData.team2) {
-          const name = await getTeamName(gameData.team2)
-          setTeam2Name(name)
-        }
       } catch (err) {
         console.error("Failed to load game details:", err)
         setError("Failed to load game details. Please try again.")
@@ -77,11 +65,13 @@ export function GameDetailsModal({ gameId, open, onOpenChange }: GameDetailsModa
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "completed":
-        return <Badge variant="success">Completed</Badge>
+        return <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">Completed</Badge>
       case "scheduled":
         return <Badge>Scheduled</Badge>
-      case "cancelled":
-        return <Badge variant="destructive">Cancelled</Badge>
+      case "available": 
+        return <Badge variant="outline">Available</Badge>
+      case "selected":
+        return <Badge variant="secondary">Selected</Badge>
       default:
         return <Badge variant="outline">{status}</Badge>
     }
@@ -115,25 +105,38 @@ export function GameDetailsModal({ gameId, open, onOpenChange }: GameDetailsModa
             </DialogHeader>
 
             <div className="grid gap-4 py-4">
-              {/* Date, Time, Location */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Game Details */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="flex items-center gap-2">
-                  <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-                  <span>{game.date ? formatDate(game.date) : "Date TBD"}</span>
+                  <Users className="h-4 w-4 text-muted-foreground" />
+                  <span>Players: {game.playerCount || "N/A"}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Clock className="h-4 w-4 text-muted-foreground" />
-                  <span>{game.date ? formatTime(game.date) : "Time TBD"}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <MapPinIcon className="h-4 w-4 text-muted-foreground" />
-                  <span>{game.location || "Location TBD"}</span>
+                  <span>Duration: {game.duration} minutes</span>
                 </div>
               </div>
-
+              
+              {/* Date and Location (if scheduled) */}
+              {game.date && (
+                <>
+                  <Separator />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="flex items-center gap-2">
+                      <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+                      <span>{formatDate(game.date)}, {formatTime(game.date)}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <MapPinIcon className="h-4 w-4 text-muted-foreground" />
+                      <span>{game.location || "Location TBD"}</span>
+                    </div>
+                  </div>
+                </>
+              )}
+              
               <Separator />
 
-              {/* Teams */}
+              {/* Teams (if assigned) */}
               {(game.team1 || game.team2) && (
                 <Card>
                   <CardHeader className="pb-2">
@@ -144,14 +147,14 @@ export function GameDetailsModal({ gameId, open, onOpenChange }: GameDetailsModa
                       <div className="flex flex-col items-center">
                         <Avatar className="h-12 w-12 mb-2">
                           <AvatarImage
-                            src={`/placeholder.svg?height=48&width=48&text=${team1Name.substring(0, 2)}`}
-                            alt={team1Name}
+                            src={`/placeholder.svg?height=48&width=48&text=${game.team1?.name?.substring(0, 2) || 'T1'}`}
+                            alt={game.team1?.name || "Team 1"}
                           />
-                          <AvatarFallback>{team1Name.substring(0, 2)}</AvatarFallback>
+                          <AvatarFallback>{game.team1?.name?.substring(0, 2) || 'T1'}</AvatarFallback>
                         </Avatar>
                         <div className="text-center">
-                          <p className="font-medium">{team1Name}</p>
-                          {game.status === "completed" && <p className="text-2xl font-bold">{game.score1}</p>}
+                          <p className="font-medium">{game.team1?.name || "Team 1 TBD"}</p>
+                          {game.status === "completed" && <p className="text-2xl font-bold">{game.score1 || 0}</p>}
                         </div>
                       </div>
 
@@ -167,14 +170,14 @@ export function GameDetailsModal({ gameId, open, onOpenChange }: GameDetailsModa
                       <div className="flex flex-col items-center">
                         <Avatar className="h-12 w-12 mb-2">
                           <AvatarImage
-                            src={`/placeholder.svg?height=48&width=48&text=${team2Name.substring(0, 2)}`}
-                            alt={team2Name}
+                            src={`/placeholder.svg?height=48&width=48&text=${game.team2?.name?.substring(0, 2) || 'T2'}`}
+                            alt={game.team2?.name || "Team 2"}
                           />
-                          <AvatarFallback>{team2Name.substring(0, 2)}</AvatarFallback>
+                          <AvatarFallback>{game.team2?.name?.substring(0, 2) || 'T2'}</AvatarFallback>
                         </Avatar>
                         <div className="text-center">
-                          <p className="font-medium">{team2Name}</p>
-                          {game.status === "completed" && <p className="text-2xl font-bold">{game.score2}</p>}
+                          <p className="font-medium">{game.team2?.name || "Team 2 TBD"}</p>
+                          {game.status === "completed" && <p className="text-2xl font-bold">{game.score2 || 0}</p>}
                         </div>
                       </div>
                     </div>
@@ -183,39 +186,39 @@ export function GameDetailsModal({ gameId, open, onOpenChange }: GameDetailsModa
               )}
 
               {/* Game Description */}
-              {game.description && (
+              <div>
+                <h3 className="font-medium mb-1">Description</h3>
+                <p className="text-sm text-muted-foreground">{game.description || "No description available."}</p>
+              </div>
+
+              {/* Category */}
+              <div>
+                <h3 className="font-medium mb-1">Category</h3>
+                <p className="text-sm text-muted-foreground">{game.category || "N/A"}</p>
+              </div>
+
+              {/* Backup Plan */}
+              {game.backupPlan && (
                 <div>
-                  <h3 className="font-medium mb-1">Description</h3>
-                  <p className="text-sm text-muted-foreground">{game.description}</p>
+                  <h3 className="font-medium mb-1">Backup Plan</h3>
+                  <p className="text-sm text-muted-foreground">{game.backupPlan}</p>
                 </div>
               )}
-
-              {/* Rules */}
-              {game.rules && (
+              
+              {/* Competition */}
+              {game.competition && (
                 <div>
-                  <h3 className="font-medium mb-1">Rules</h3>
-                  <p className="text-sm text-muted-foreground">{game.rules}</p>
-                </div>
-              )}
-
-              {/* Players */}
-              {game.players && game.players.length > 0 && (
-                <div>
-                  <h3 className="font-medium mb-1">Players</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {game.players.map((player: any) => (
-                      <Badge key={player.id} variant="outline">
-                        {player.name}
-                      </Badge>
-                    ))}
-                  </div>
+                  <h3 className="font-medium mb-1">Competition</h3>
+                  <p className="text-sm text-muted-foreground">{game.competition.name} {game.competition.year}</p>
                 </div>
               )}
             </div>
+            
+            <div className="flex justify-end">
+              <Button onClick={() => onOpenChange(false)}>Close</Button>
+            </div>
           </>
-        ) : (
-          <div className="text-center py-8 text-muted-foreground">No game details available</div>
-        )}
+        ) : null}
       </DialogContent>
     </Dialog>
   )

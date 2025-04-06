@@ -1,0 +1,473 @@
+"use client"
+
+import { useEffect, useState } from "react"
+import { useSession } from "next-auth/react"
+import { useRouter } from "next/navigation"
+import Image from "next/image"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { useToast } from "@/components/ui/use-toast"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { CheckCircle2, Calendar, Trophy, Users, Crown, Loader2, MapPin, Clock, Gamepad2 } from "lucide-react"
+import { getCompetitionById, isUserRegisteredForCompetition, registerUserForCompetition } from "@/app/actions/competitions"
+import { DashboardLoading as CompetitionLoadingSpinner } from "@/components/loading-skeletons/competition-detail-skeleton"
+
+interface CompetitionDetailProps {
+  id: string
+}
+
+export default function CompetitionDetailClientPage({ id }: CompetitionDetailProps) {
+  const [competition, setCompetition] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+  const [isRegistered, setIsRegistered] = useState(false)
+  const [showRegistrationModal, setShowRegistrationModal] = useState(false)
+  const [registering, setRegistering] = useState(false)
+  const { data: session } = useSession()
+  const { toast } = useToast()
+  const router = useRouter()
+  
+  useEffect(() => {
+    const fetchCompetitionDetails = async () => {
+      try {
+        // Fetch competition details
+        const competitionData = await getCompetitionById(id)
+        setCompetition(competitionData)
+        
+        // Check if user is registered
+        if (session?.user) {
+          const registered = await isUserRegisteredForCompetition(id)
+          setIsRegistered(registered)
+        }
+      } catch (error) {
+        console.error("Error fetching competition details:", error)
+        toast({
+          title: "Error",
+          description: "Failed to load competition details",
+          variant: "destructive"
+        })
+      } finally {
+        setLoading(false)
+      }
+    }
+    
+    fetchCompetitionDetails()
+  }, [id, session?.user, toast])
+  
+  const handleRegisterForCompetition = async () => {
+    setRegistering(true)
+    try {
+      const result = await registerUserForCompetition(id)
+      if (result.success) {
+        setIsRegistered(true)
+        setShowRegistrationModal(false)
+        toast({
+          title: "Registration successful",
+          description: `You have been registered for ${competition.name}`,
+          variant: "default"
+        })
+      }
+    } catch (err) {
+      console.error('Error registering for competition:', err)
+      toast({
+        title: "Registration failed",
+        description: err instanceof Error ? err.message : "Failed to register for the competition",
+        variant: "destructive"
+      })
+    } finally {
+      setRegistering(false)
+    }
+  }
+  
+  if (loading) {
+    return <CompetitionLoadingSpinner />
+  }
+  
+  if (!competition) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh]">
+        <h2 className="text-2xl font-bold mb-2">Competition Not Found</h2>
+        <p className="text-muted-foreground mb-6">The competition you're looking for doesn't exist or has been removed.</p>
+        <Button onClick={() => router.push('/competitions')}>
+          View All Competitions
+        </Button>
+      </div>
+    )
+  }
+  
+  const isActive = competition.status === 'active'
+  const isCompleted = competition.status === 'completed'
+  
+  return (
+    <div className="container py-8 max-w-7xl">
+      <div className="flex flex-col space-y-2 mb-8">
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="text-3xl font-bold">{competition.name}</h1>
+          <Badge variant={isActive ? "default" : isCompleted ? "secondary" : "outline"}>
+            {competition.status.charAt(0).toUpperCase() + competition.status.slice(1)}
+          </Badge>
+          {isRegistered && (
+            <Badge variant="success" className="bg-green-600">
+              <CheckCircle2 className="mr-1 h-3 w-3" /> Registered
+            </Badge>
+          )}
+        </div>
+        <p className="text-muted-foreground">
+          {competition.description}
+        </p>
+      </div>
+      
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-8">
+        <Card>
+          <CardContent className="flex pt-6">
+            <Calendar className="h-5 w-5 mr-3 text-primary" />
+            <div>
+              <p className="font-medium">Competition Dates</p>
+              <p className="text-sm text-muted-foreground">
+                {new Date(competition.startDate).toLocaleDateString()} - {new Date(competition.endDate).toLocaleDateString()}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="flex pt-6">
+            <Trophy className="h-5 w-5 mr-3 text-primary" />
+            <div>
+              <p className="font-medium">Teams</p>
+              <p className="text-sm text-muted-foreground">
+                {competition.teams?.length || 0} Competing Teams
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="flex pt-6">
+            <Users className="h-5 w-5 mr-3 text-primary" />
+            <div>
+              <p className="font-medium">Players</p>
+              <p className="text-sm text-muted-foreground">
+                {competition.teams?.reduce((acc: number, team: any) => acc + (team.members?.length || 0), 0) || 0} Registered Players
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="flex pt-6">
+            <Gamepad2 className="h-5 w-5 mr-3 text-primary" />
+            <div>
+              <p className="font-medium">Games</p>
+              <p className="text-sm text-muted-foreground">
+                {competition.games?.length || 0} Scheduled Games
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+      
+      {!isRegistered && session?.user && isActive && (
+        <Card className="mb-8 bg-muted/20 border-primary/20">
+          <CardContent className="pt-6">
+            <div className="flex flex-col md:flex-row justify-between items-center">
+              <div>
+                <h3 className="text-xl font-semibold mb-2">Join the Competition</h3>
+                <p className="text-muted-foreground">
+                  Register to participate in {competition.name} and represent your team in this event.
+                </p>
+              </div>
+              <Button 
+                className="mt-4 md:mt-0"
+                onClick={() => setShowRegistrationModal(true)}
+              >
+                Register Now
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+      
+      <Tabs defaultValue="overview" className="mb-8">
+        <TabsList className="mb-4">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="teams">Teams</TabsTrigger>
+          <TabsTrigger value="games">Games</TabsTrigger>
+          {isCompleted && (
+            <TabsTrigger value="results">Results</TabsTrigger>
+          )}
+        </TabsList>
+        
+        <TabsContent value="overview" className="space-y-6">
+          <div className="grid gap-6 md:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle>Competition Details</CardTitle>
+                <CardDescription>Information about this competition</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Year</p>
+                    <p>{competition.year}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Status</p>
+                    <p>{competition.status.charAt(0).toUpperCase() + competition.status.slice(1)}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Start Date</p>
+                    <p>{new Date(competition.startDate).toLocaleDateString()}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">End Date</p>
+                    <p>{new Date(competition.endDate).toLocaleDateString()}</p>
+                  </div>
+                </div>
+                
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground mb-1">Description</p>
+                  <p className="text-sm">{competition.description}</p>
+                </div>
+                
+                {isCompleted && competition.winnerId && (
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground mb-1">Winner</p>
+                    <div className="flex items-center">
+                      <Trophy className="h-4 w-4 text-yellow-500 mr-2" />
+                      <p>{competition.winnerTeam || "Team not found"}</p>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader>
+                <CardTitle>Competition Timeline</CardTitle>
+                <CardDescription>Key phases and dates</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {competition.phases && competition.phases.length > 0 ? (
+                    <div className="space-y-4">
+                      {competition.phases.map((phase: any, index: number) => (
+                        <div key={phase.id} className="relative pl-6 pb-4 border-l border-muted last:border-0 last:pb-0">
+                          <div className="absolute left-0 top-0 transform -translate-x-1/2 w-3 h-3 rounded-full bg-primary" />
+                          <p className="font-medium">{phase.name}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {new Date(phase.startDate).toLocaleDateString()} - {new Date(phase.endDate).toLocaleDateString()}
+                          </p>
+                          <p className="text-sm mt-1">{phase.description}</p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-muted-foreground text-sm">No phases have been defined for this competition yet.</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+        
+        <TabsContent value="teams" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Participating Teams</CardTitle>
+              <CardDescription>Teams competing in this competition</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {competition.teams && competition.teams.length > 0 ? (
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {competition.teams.map((team: any) => (
+                    <Card key={team.id} className="overflow-hidden">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-lg">{team.name}</CardTitle>
+                        <CardDescription>
+                          {team.members?.length || 0} members
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="pb-2">
+                        <div className="flex -space-x-2 overflow-hidden">
+                          {team.members?.slice(0, 5).map((member: any) => (
+                            <Avatar key={member.id} className="border-2 border-background">
+                              <AvatarImage src={member.image || `/placeholder.svg?text=${member.name?.substring(0, 2)}`} />
+                              <AvatarFallback>{member.name?.substring(0, 2)}</AvatarFallback>
+                            </Avatar>
+                          ))}
+                          {team.members && team.members.length > 5 && (
+                            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-muted text-xs font-medium">
+                              +{team.members.length - 5}
+                            </div>
+                          )}
+                        </div>
+                      </CardContent>
+                      <CardFooter>
+                        <div className="text-sm">
+                          <div className="flex items-center">
+                            <Crown className="h-4 w-4 text-muted-foreground mr-1" />
+                            Captain: {team.captain?.name || "Not assigned"}
+                          </div>
+                        </div>
+                      </CardFooter>
+                    </Card>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-muted-foreground">No teams have joined this competition yet.</p>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="games" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Scheduled Games</CardTitle>
+              <CardDescription>All games for this competition</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {competition.games && competition.games.length > 0 ? (
+                <div className="border rounded-md divide-y">
+                  <div className="grid grid-cols-5 p-3 font-medium bg-muted/50">
+                    <div>Game</div>
+                    <div>Type</div>
+                    <div>Date</div>
+                    <div>Location</div>
+                    <div>Status</div>
+                  </div>
+                  {competition.games.map((game: any) => (
+                    <div key={game.id} className="grid grid-cols-5 p-3">
+                      <div className="font-medium">{game.name}</div>
+                      <div>{game.type}</div>
+                      <div>{game.date ? new Date(game.date).toLocaleDateString() : "TBD"}</div>
+                      <div>{game.location || "TBD"}</div>
+                      <div>
+                        <Badge variant={
+                          game.status === "completed" ? "secondary" : 
+                          game.status === "active" ? "default" : 
+                          "outline"
+                        }>
+                          {game.status.charAt(0).toUpperCase() + game.status.slice(1)}
+                        </Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-muted-foreground">No games have been scheduled for this competition yet.</p>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        {isCompleted && (
+          <TabsContent value="results" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Competition Results</CardTitle>
+                <CardDescription>Final standings and awards</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {competition.teams && competition.teams.length > 0 ? (
+                  <div className="space-y-6">
+                    <div>
+                      <h3 className="text-lg font-semibold mb-3">Team Rankings</h3>
+                      <div className="border rounded-md divide-y">
+                        <div className="grid grid-cols-4 p-3 font-medium bg-muted/50">
+                          <div>Rank</div>
+                          <div>Team</div>
+                          <div>Score</div>
+                          <div>Win Rate</div>
+                        </div>
+                        {competition.teams
+                          .sort((a: any, b: any) => b.score - a.score)
+                          .map((team: any, index: number) => (
+                            <div key={team.id} className="grid grid-cols-4 p-3">
+                              <div className="font-medium">#{index + 1}</div>
+                              <div>{team.name}</div>
+                              <div>{team.score || 0}</div>
+                              <div>{team.winRate || 0}%</div>
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <h3 className="text-lg font-semibold mb-3">Awards</h3>
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <Card>
+                          <CardContent className="pt-6">
+                            <div className="flex items-start">
+                              <Trophy className="h-6 w-6 text-yellow-500 mr-3" />
+                              <div>
+                                <p className="font-medium">Champion Team</p>
+                                <p className="text-lg font-bold">{competition.winnerTeam || "Not awarded yet"}</p>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                        
+                        <Card>
+                          <CardContent className="pt-6">
+                            <div className="flex items-start">
+                              <Crown className="h-6 w-6 text-yellow-500 mr-3" />
+                              <div>
+                                <p className="font-medium">GOAT Award</p>
+                                <p className="text-lg font-bold">{competition.goatPlayer || "Not awarded yet"}</p>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-muted-foreground">No results available for this competition.</p>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
+      </Tabs>
+      
+      {/* Registration Modal */}
+      <Dialog open={showRegistrationModal} onOpenChange={setShowRegistrationModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Register for Competition</DialogTitle>
+            <DialogDescription>
+              You are about to register for {competition.name}. 
+              This will add you to the participant list.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="mb-2"><strong>Competition:</strong> {competition.name}</p>
+            <p className="mb-2"><strong>Year:</strong> {competition.year}</p>
+            <p className="mb-2"><strong>Dates:</strong> {`${new Date(competition.startDate).toLocaleDateString()} - ${new Date(competition.endDate).toLocaleDateString()}`}</p>
+            <p className="mb-2"><strong>Status:</strong> {competition.status}</p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowRegistrationModal(false)}>Cancel</Button>
+            <Button 
+              onClick={handleRegisterForCompetition}
+              disabled={registering}
+            >
+              {registering ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Registering...
+                </>
+              ) : (
+                "Register"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+} 

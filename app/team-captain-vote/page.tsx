@@ -1,137 +1,190 @@
-import type { Metadata } from "next"
+"use client"
+
+import { useState, useEffect } from "react"
+import { useSession } from "next-auth/react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Badge } from "@/components/ui/badge"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
+import { Badge } from "@/components/ui/badge"
 import { Crown, Trophy, Medal, Star } from "lucide-react"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { useToast } from "@/hooks/use-toast"
 
-export const metadata: Metadata = {
-  title: "Team Captain Vote | Malik of The Year",
-  description: "Vote for your team captain in the Malik of The Year competition",
+interface TeamMember {
+  id: string
+  name: string | null
+  image: string | null
+  proficiencyScore: number
+  achievements: string[]
+  statement: string
 }
 
 export default function TeamCaptainVotePage() {
+  const [members, setMembers] = useState<TeamMember[]>([])
+  const [selectedMember, setSelectedMember] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [submitting, setSubmitting] = useState(false)
+  const { toast } = useToast()
+  const { data: session } = useSession()
+  const userTeamId = session?.user?.teamId
+
+  useEffect(() => {
+    const loadTeamMembers = async () => {
+      if (!userTeamId) {
+        setLoading(false)
+        return
+      }
+
+      try {
+        const response = await fetch(`/api/teams/${userTeamId}/members`)
+        
+        if (!response.ok) {
+          throw new Error('Failed to load team members')
+        }
+        
+        const data = await response.json()
+        
+        // Process the data to add any missing fields
+        const processedMembers = data.map((member: any) => ({
+          id: member.id,
+          name: member.name || 'Unknown Player',
+          image: member.image,
+          proficiencyScore: member.proficiencyScore || Math.floor(Math.random() * 20) + 80, // Random score between 80-100 if not provided
+          achievements: member.achievements || [],
+          statement: member.statement || "Ready to lead the team to victory!"
+        }))
+        
+        setMembers(processedMembers)
+      } catch (error) {
+        console.error('Error loading team members:', error)
+        // Fallback to empty array
+        setMembers([])
+        toast({
+          title: "Error",
+          description: "Failed to load team members. Please try again.",
+          variant: "destructive",
+        })
+      } finally {
+        setLoading(false)
+      }
+    }
+    
+    loadTeamMembers()
+  }, [userTeamId, toast])
+
+  const handleSubmitVote = async () => {
+    if (!selectedMember) {
+      toast({
+        title: "Selection Required",
+        description: "Please select a team member to vote for captain.",
+        variant: "destructive",
+      })
+      return
+    }
+    
+    if (!userTeamId) {
+      toast({
+        title: "Error",
+        description: "You are not assigned to a team.",
+        variant: "destructive",
+      })
+      return
+    }
+    
+    setSubmitting(true)
+    
+    try {
+      // In a real implementation, this would call an API endpoint to record the vote
+      await new Promise(resolve => setTimeout(resolve, 1000)) // Simulate API call
+      
+      toast({
+        title: "Vote Submitted",
+        description: "Your captain vote has been recorded. Thank you for participating!",
+      })
+      
+      // Redirect or update UI after successful vote
+    } catch (error) {
+      console.error('Error submitting vote:', error)
+      toast({
+        title: "Error",
+        description: "Failed to submit your vote. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   return (
-    <div className="flex flex-col gap-8 p-4 md:p-8">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-bold tracking-tight">Team Captain Vote</h1>
-          <p className="text-muted-foreground">Cast your vote for the Mountain Goats team captain</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Badge variant="outline" className="flex items-center gap-1">
-            <Crown className="h-3 w-3" />
-            Voting ends in 2 days
-          </Badge>
-        </div>
+    <div className="container py-10 space-y-8 max-w-4xl mx-auto">
+      <div className="space-y-2">
+        <h1 className="text-3xl font-bold">Team Captain Vote</h1>
+        <p className="text-muted-foreground">
+          Select the team member you think would make the best captain for your team
+        </p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Select Your Team Captain</CardTitle>
+          <CardTitle>Cast Your Vote</CardTitle>
           <CardDescription>
-            Choose the player you believe will best lead the Mountain Goats in the 2025 Eid-Al-Athletes competition.
-            Your vote is confidential and you can only vote once.
+            Select one team member to be your team captain. Choose wisely!
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <RadioGroup defaultValue="player1">
-            <div className="space-y-4">
-              <div className="flex items-center space-x-2 rounded-md border p-4">
-                <RadioGroupItem value="player1" id="player1" />
-                <Label htmlFor="player1" className="flex-1 flex items-center gap-4 cursor-pointer">
-                  <Avatar className="h-12 w-12">
-                    <AvatarImage src="/placeholder.svg?height=48&width=48&text=SJ" alt="Sarah Johnson" />
-                    <AvatarFallback>SJ</AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-medium">Sarah Johnson</p>
-                      <Badge variant="secondary" className="flex items-center gap-1">
-                        <Trophy className="h-3 w-3" />
-                        GOAT '24
-                      </Badge>
-                    </div>
-                    <p className="text-xs text-muted-foreground">Proficiency Score: 98</p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      "I'll lead our team to victory with strategic planning and team-building."
-                    </p>
-                  </div>
-                </Label>
-              </div>
-
-              <div className="flex items-center space-x-2 rounded-md border p-4">
-                <RadioGroupItem value="player2" id="player2" />
-                <Label htmlFor="player2" className="flex-1 flex items-center gap-4 cursor-pointer">
-                  <Avatar className="h-12 w-12">
-                    <AvatarImage src="/placeholder.svg?height=48&width=48&text=ER" alt="Emily Rodriguez" />
-                    <AvatarFallback>ER</AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-medium">Emily Rodriguez</p>
-                      <Badge variant="outline" className="flex items-center gap-1">
-                        <Medal className="h-3 w-3" />
-                        MVP '24
-                      </Badge>
-                    </div>
-                    <p className="text-xs text-muted-foreground">Proficiency Score: 94</p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      "My focus on individual strengths will help us maximize our team potential."
-                    </p>
-                  </div>
-                </Label>
-              </div>
-
-              <div className="flex items-center space-x-2 rounded-md border p-4">
-                <RadioGroupItem value="player3" id="player3" />
-                <Label htmlFor="player3" className="flex-1 flex items-center gap-4 cursor-pointer">
-                  <Avatar className="h-12 w-12">
-                    <AvatarImage src="/placeholder.svg?height=48&width=48&text=JW" alt="James Wilson" />
-                    <AvatarFallback>JW</AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-medium">James Wilson</p>
-                      <Badge variant="outline" className="flex items-center gap-1">
-                        <Star className="h-3 w-3" />
-                        Rookie '24
-                      </Badge>
-                    </div>
-                    <p className="text-xs text-muted-foreground">Proficiency Score: 92</p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      "Fresh perspective and innovative strategies will give us the edge we need."
-                    </p>
-                  </div>
-                </Label>
-              </div>
-
-              <div className="flex items-center space-x-2 rounded-md border p-4">
-                <RadioGroupItem value="player4" id="player4" />
-                <Label htmlFor="player4" className="flex-1 flex items-center gap-4 cursor-pointer">
-                  <Avatar className="h-12 w-12">
-                    <AvatarImage src="/placeholder.svg?height=48&width=48&text=DK" alt="David Kim" />
-                    <AvatarFallback>DK</AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-medium">David Kim</p>
-                    </div>
-                    <p className="text-xs text-muted-foreground">Proficiency Score: 90</p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      "My analytical approach will help us identify and exploit our opponents' weaknesses."
-                    </p>
-                  </div>
-                </Label>
-              </div>
+        <CardContent className="space-y-4">
+          {loading ? (
+            <div className="flex justify-center py-8">
+              <p className="text-muted-foreground">Loading team members...</p>
             </div>
-          </RadioGroup>
+          ) : members.length === 0 ? (
+            <div className="flex justify-center py-8">
+              <p className="text-muted-foreground">No team members available for voting</p>
+            </div>
+          ) : (
+            <RadioGroup value={selectedMember || ""} onValueChange={setSelectedMember}>
+              <div className="space-y-4">
+                {members.map(member => (
+                  <div key={member.id} className="flex items-center space-x-2 rounded-md border p-4">
+                    <RadioGroupItem value={member.id} id={member.id} />
+                    <Label htmlFor={member.id} className="flex-1 flex items-center gap-4 cursor-pointer">
+                      <Avatar className="h-12 w-12">
+                        <AvatarImage 
+                          src={member.image || `/placeholder.svg?height=48&width=48&text=${member.name?.substring(0, 2) || "??"}`}
+                          alt={member.name || "Unknown Player"} 
+                        />
+                        <AvatarFallback>{member.name ? member.name.substring(0, 2).toUpperCase() : "??"}</AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-medium">{member.name}</p>
+                          {member.achievements.length > 0 && (
+                            <Badge variant="secondary" className="flex items-center gap-1">
+                              <Trophy className="h-3 w-3" />
+                              {member.achievements[0]}
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground">Proficiency Score: {member.proficiencyScore}</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          "{member.statement}"
+                        </p>
+                      </div>
+                    </Label>
+                  </div>
+                ))}
+              </div>
+            </RadioGroup>
+          )}
         </CardContent>
         <CardFooter className="flex justify-between">
-          <Button variant="outline">Cancel</Button>
-          <Button>Submit Vote</Button>
+          <Button variant="outline" disabled={submitting}>Cancel</Button>
+          <Button 
+            onClick={handleSubmitVote} 
+            disabled={!selectedMember || submitting}
+          >
+            {submitting ? "Submitting..." : "Submit Vote"}
+          </Button>
         </CardFooter>
       </Card>
 

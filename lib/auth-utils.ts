@@ -82,7 +82,14 @@ export function isResourceOwner(session: Session | null, resourceUserId: string)
 /**
  * Check if the user can view player scores
  */
-export function canViewPlayerScores(session: Session | null): boolean {
-  if (!session?.user) return false;
-  return ['admin', 'captain'].includes(session.user.role || '');
+export function canViewPlayerScores(user: any, teamId?: string): boolean {
+  if (!user) return false;
+  
+  // Admins can view all player scores
+  if (user.role === 'admin') return true;
+  
+  // Captains can view scores of their own team
+  if (user.role === 'captain' && (!teamId || user.teamId === teamId)) return true;
+  
+  return false;
 } 

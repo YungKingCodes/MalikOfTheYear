@@ -1,21 +1,34 @@
 import { Button } from "@/components/ui/button"
-import { Crown } from "lucide-react"
+import Link from "next/link"
+import { useSession } from "next-auth/react"
 
-export function DashboardHeader() {
+interface DashboardHeaderProps {
+  competitionName?: string;
+  competitionYear?: number;
+}
+
+export function DashboardHeader({ competitionName, competitionYear }: DashboardHeaderProps) {
+  const { data: session } = useSession()
+  const user = session?.user
+
   return (
-    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-      <div className="space-y-1">
-        <div className="flex items-center gap-2">
-          <Crown className="h-6 w-6 text-secondary" />
-          <h1 className="text-2xl font-bold tracking-tight text-secondary">Eid-Al-Athletes 2025</h1>
-        </div>
-        <p className="text-muted-foreground">Welcome to your competition dashboard. Track teams, players, and games.</p>
+    <div className="flex items-center justify-between">
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">
+          {competitionName ? (
+            <span className="text-amber-500 font-bold">{competitionName} {competitionYear}</span>
+          ) : "Dashboard"}
+        </h1>
+        <p className="text-muted-foreground">
+          Welcome back, {user?.name || "Guest"}!
+        </p>
       </div>
       <div className="flex items-center gap-2">
-        <Button variant="outline" className="border-secondary/50 text-secondary hover:bg-secondary/10">
-          Export Data
-        </Button>
-        <Button className="bg-primary hover:bg-primary/90">Add Event</Button>
+        {user?.role === "admin" && (
+          <Button variant="outline" asChild>
+            <Link href="/admin">Admin</Link>
+          </Button>
+        )}
       </div>
     </div>
   )

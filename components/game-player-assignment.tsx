@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -9,13 +9,14 @@ import { useSession } from "next-auth/react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { CalendarDays, Users } from "lucide-react"
+import { getGamePlayers, assignPlayersToGame } from "@/app/actions/games"
 
 interface Player {
   id: string
-  name: string
-  position: string
-  proficiencyScore: number
-  avatar: string
+  name: string | null
+  position?: string | null
+  proficiencyScore?: number | null
+  image?: string | null
   selected: boolean
 }
 
@@ -26,6 +27,7 @@ interface GameAssignmentProps {
   gameType: string
   requiresAllPlayers: boolean
   maxPlayers?: number
+  teamId?: string
 }
 
 export function GamePlayerAssignment({
@@ -35,23 +37,75 @@ export function GamePlayerAssignment({
   gameType,
   requiresAllPlayers,
   maxPlayers = 8,
+  teamId,
 }: GameAssignmentProps) {
-  // Mock team players data
-  const [players, setPlayers] = useState<Player[]>([
-    { id: "p1", name: "Sarah Johnson", position: "Captain", proficiencyScore: 98, avatar: "SJ", selected: false },
-    { id: "p2", name: "Emily Rodriguez", position: "Forward", proficiencyScore: 94, avatar: "ER", selected: false },
-    { id: "p3", name: "David Kim", position: "Defense", proficiencyScore: 92, avatar: "DK", selected: false },
-    { id: "p4", name: "Michael Chen", position: "Utility", proficiencyScore: 90, avatar: "MC", selected: false },
-    { id: "p5", name: "James Wilson", position: "Forward", proficiencyScore: 89, avatar: "JW", selected: false },
-    { id: "p6", name: "Lisa Thompson", position: "Defense", proficiencyScore: 87, avatar: "LT", selected: false },
-    { id: "p7", name: "Robert Garcia", position: "Utility", proficiencyScore: 85, avatar: "RG", selected: false },
-    { id: "p8", name: "Jennifer Lee", position: "Specialist", proficiencyScore: 83, avatar: "JL", selected: false },
-  ])
-
+  const [players, setPlayers] = useState<Player[]>([])
+  const [loading, setLoading] = useState(true)
+  const [submitting, setSubmitting] = useState(false)
+  
   const { data: session } = useSession()
   const user = session?.user
   const { toast } = useToast()
   const isCaptain = user?.role === "captain"
+  const userTeamId = user?.teamId || teamId
+  
+  // Fetch team members and currently assigned players
+  useEffect(() => {
+    async function loadData() {
+      if (!userTeamId) {
+        setLoading(false)
+        return
+      }
+      
+      try {
+        setLoading(true)
+        
+        // Get team members
+        const teamResponse = await fetch(`/api/teams/${userTeamId}/members`)
+        if (!teamResponse.ok) {
+          throw new Error("Failed to fetch team members")
+        }
+        const teamMembers = await teamResponse.json()
+        
+        // Get currently assigned players for this game
+        let selectedPlayerIds: string[] = []
+        try {
+          const gamePlayersResponse = await getGamePlayers(gameId)
+          const currentTeamData = gamePlayersResponse.teams.find((t: any) => t.teamId === userTeamId)
+          
+          if (currentTeamData && currentTeamData.players.length > 0) {
+            selectedPlayerIds = currentTeamData.players.map((p: any) => p.id)
+          }
+        } catch (error) {
+          console.error("Error fetching game players:", error)
+          // Continue with empty selections if this fails
+        }
+        
+        // Map team members to players with selection status
+        const mappedPlayers = teamMembers.map((member: any) => ({
+          id: member.id,
+          name: member.name,
+          position: member.position || "Team Member",
+          proficiencyScore: member.proficiencyScore || 50,
+          image: member.image,
+          selected: selectedPlayerIds.includes(member.id) || requiresAllPlayers
+        }))
+        
+        setPlayers(mappedPlayers)
+      } catch (error) {
+        console.error("Error loading data:", error)
+        toast({
+          title: "Error",
+          description: "Failed to load team members",
+          variant: "destructive"
+        })
+      } finally {
+        setLoading(false)
+      }
+    }
+    
+    loadData()
+  }, [gameId, userTeamId, requiresAllPlayers, toast])
 
   const selectedCount = players.filter((p) => p.selected).length
   const isValid = requiresAllPlayers
@@ -102,7 +156,7 @@ export function GamePlayerAssignment({
     )
   }
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!isValid) {
       toast({
         title: "Invalid Selection",
@@ -113,22 +167,73 @@ export function GamePlayerAssignment({
       })
       return
     }
-
-    // In a real implementation, this would call an API endpoint
-    toast({
-      title: "Players Assigned",
-      description: `Successfully assigned ${selectedCount} players to ${gameName}.`,
-    })
-
-    // For demo purposes, we'll just log the selected players
-    console.log(
-      "Assigned players:",
-      players.filter((p) => p.selected).map((p) => p.name),
-    )
+    
+    if (!userTeamId) {
+      toast({
+        title: "Error",
+        description: "No team selected",
+        variant: "destructive",
+      })
+      return
+    }
+    
+    try {
+      setSubmitting(true)
+      
+      // Get selected player IDs
+      const selectedPlayerIds = players
+        .filter(player => player.selected)
+        .map(player => player.id)
+        
+      // Submit player assignments
+      await assignPlayersToGame(gameId, selectedPlayerIds)
+      
+      toast({
+        title: "Players Assigned",
+        description: `Successfully assigned ${selectedCount} players to ${gameName}.`,
+      })
+    } catch (error) {
+      console.error("Error assigning players:", error)
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to assign players",
+        variant: "destructive",
+      })
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   if (!isCaptain) {
     return null
+  }
+  
+  if (loading) {
+    return (
+      <Card className="mt-6 border-primary/20">
+        <CardHeader className="bg-primary/5">
+          <CardTitle className="text-primary">Assign Players to Game</CardTitle>
+          <CardDescription>Loading player data...</CardDescription>
+        </CardHeader>
+        <CardContent className="py-8 text-center">
+          <div className="animate-pulse text-muted-foreground">Loading team members...</div>
+        </CardContent>
+      </Card>
+    )
+  }
+  
+  if (players.length === 0) {
+    return (
+      <Card className="mt-6 border-primary/20">
+        <CardHeader className="bg-primary/5">
+          <CardTitle className="text-primary">Assign Players to Game</CardTitle>
+          <CardDescription>No players available</CardDescription>
+        </CardHeader>
+        <CardContent className="py-8 text-center">
+          <div className="text-muted-foreground">No team members found</div>
+        </CardContent>
+      </Card>
+    )
   }
 
   return (
@@ -173,18 +278,18 @@ export function GamePlayerAssignment({
                   <div className="col-span-2 flex items-center gap-3">
                     <Avatar className="h-8 w-8">
                       <AvatarImage
-                        src={`/placeholder.svg?height=32&width=32&text=${player.avatar}`}
-                        alt={player.name}
+                        src={player.image || `/placeholder.svg?height=32&width=32&text=${player.name?.substring(0, 2) || "??"}`}
+                        alt={player.name || "Unknown"}
                       />
-                      <AvatarFallback>{player.avatar}</AvatarFallback>
+                      <AvatarFallback>{player.name ? player.name.substring(0, 2).toUpperCase() : "??"}</AvatarFallback>
                     </Avatar>
                     <div>
-                      <p className="text-sm font-medium">{player.name}</p>
-                      <p className="text-xs text-muted-foreground">{player.position}</p>
+                      <p className="text-sm font-medium">{player.name || "Unknown Player"}</p>
+                      <p className="text-xs text-muted-foreground">{player.position || "Team Member"}</p>
                     </div>
                   </div>
-                  <div className="text-sm">{player.position}</div>
-                  <div className="text-sm">{player.proficiencyScore}</div>
+                  <div className="text-sm">{player.position || "Team Member"}</div>
+                  <div className="text-sm">{player.proficiencyScore || "-"}</div>
                   <div className="flex justify-end">
                     <Checkbox
                       checked={player.selected || requiresAllPlayers}
@@ -198,14 +303,12 @@ export function GamePlayerAssignment({
           </div>
         </div>
       </CardContent>
-      <CardFooter className="flex justify-end gap-2 border-t bg-muted/20 p-4">
-        <Button variant="outline">Cancel</Button>
+      <CardFooter className="flex justify-end gap-2 pt-4">
         <Button
-          className="bg-primary hover:bg-primary/90"
           onClick={handleSubmit}
-          disabled={!isValid && !requiresAllPlayers}
+          disabled={!isValid || submitting}
         >
-          Assign Players
+          {submitting ? "Submitting..." : "Assign Players"}
         </Button>
       </CardFooter>
     </Card>

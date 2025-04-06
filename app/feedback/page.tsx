@@ -1,32 +1,57 @@
-import type { Metadata } from "next"
-import { FeedbackList } from "@/components/feedback/feedback-list"
 import { FeedbackForm } from "@/components/feedback/feedback-form"
+import { FeedbackList } from "@/components/feedback/feedback-list"
+import { ProtectedRoute } from "@/components/auth/protected-route"
+import { Button } from "@/components/ui/button"
+import { PlusIcon, SettingsIcon } from "lucide-react"
+import Link from "next/link"
+import { auth } from "@/auth"
 
-export const metadata: Metadata = {
-  title: "Feedback | Malik of The Year",
-  description: "Submit and vote on feedback for the Malik of The Year platform",
+export const metadata = {
+  title: "Feedback & Suggestions",
+  description: "Submit feedback and vote on suggestions for improving the platform",
 }
 
-export default function FeedbackPage() {
+export default async function FeedbackPage() {
+  const session = await auth();
+  const isAdmin = session?.user?.role === "admin";
+  
   return (
-    <div className="container py-8 space-y-8">
-      <div className="flex flex-col gap-4">
-        <h1 className="text-3xl font-bold text-primary">Platform Feedback</h1>
-        <p className="text-muted-foreground">
-          Help us improve the Malik of The Year platform by submitting your feedback and suggestions. Vote on existing
-          feedback to help us prioritize improvements.
-        </p>
-      </div>
+    <ProtectedRoute>
+      <div className="container mx-auto py-6 md:py-8 space-y-6 md:space-y-8">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Feedback & Suggestions</h1>
+            <p className="text-muted-foreground mt-1">
+              Share your ideas and vote on what should be prioritized
+            </p>
+          </div>
+          <div className="flex justify-end gap-2">
+            {isAdmin && (
+              <Button asChild variant="outline" size="sm">
+                <Link href="/admin/feedback">
+                  <SettingsIcon className="h-4 w-4 mr-2" />
+                  Manage
+                </Link>
+              </Button>
+            )}
+            <Button asChild className="sm:w-auto" size="sm">
+              <Link href="#submit-feedback">
+                <PlusIcon className="h-4 w-4 mr-2" />
+                Add Feedback
+              </Link>
+            </Button>
+          </div>
+        </div>
 
-      <div className="grid gap-8 md:grid-cols-3">
-        <div className="order-2 md:order-1 md:col-span-1">
+        {/* Feedback List */}
+        <FeedbackList />
+
+        {/* Submit Feedback Form */}
+        <div className="max-w-xl mx-auto" id="submit-feedback">
           <FeedbackForm />
         </div>
-        <div className="order-1 md:order-2 md:col-span-2">
-          <FeedbackList />
-        </div>
       </div>
-    </div>
+    </ProtectedRoute>
   )
 }
 

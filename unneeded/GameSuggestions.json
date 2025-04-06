@@ -1,0 +1,569 @@
+[
+    {
+        "Game Name": "Red Light, Green Light",
+        "Type/Theme": "Squid Game Style",
+        "Description": "Players move on \"green\" and freeze on \"red\"; movement on red = out",
+        "Difficulty": "Easy",
+        "Elimination": "Yes",
+        "Materials Needed": "None (optional: music)",
+        "Cost": ""
+    },
+    {
+        "Game Name": "The Floor Is Lava",
+        "Type/Theme": "Squid Game Style",
+        "Description": "Players use 2-3 pads to cross a course without touching the ground",
+        "Difficulty": "Medium",
+        "Elimination": "Yes",
+        "Materials Needed": "Cardboard, tiles, or paper pads",
+        "Cost": ""
+    },
+    {
+        "Game Name": "Silent Ball",
+        "Type/Theme": "Easy & High Stakes",
+        "Description": "Throw a ball in silence; drop or noise = out",
+        "Difficulty": "Easy",
+        "Elimination": "Yes",
+        "Materials Needed": "Soft ball or plush",
+        "Cost": ""
+    },
+    {
+        "Game Name": "Cup Stack Duel",
+        "Type/Theme": "Easy & High Stakes",
+        "Description": "2 players race to stack/unstack cups; loser is out",
+        "Difficulty": "Easy",
+        "Elimination": "Yes",
+        "Materials Needed": "Plastic cups (10 per person)",
+        "Cost": ""
+    },
+    {
+        "Game Name": "Trivia Elimination",
+        "Type/Theme": "Strategy",
+        "Description": "Quick-answer trivia; wrong = out",
+        "Difficulty": "Easy",
+        "Elimination": "Yes",
+        "Materials Needed": "Trivia questions",
+        "Cost": ""
+    },
+    {
+        "Game Name": "Paper Plane Poker",
+        "Type/Theme": "Squid Game Style",
+        "Description": "Throw paper plane at target; worst one = out",
+        "Difficulty": "Easy",
+        "Elimination": "Yes",
+        "Materials Needed": "Paper, target",
+        "Cost": ""
+    },
+    {
+        "Game Name": "Tug-of-War Twist",
+        "Type/Theme": "Squid Game Style",
+        "Description": "1v1 rope duel or balance match",
+        "Difficulty": "Medium",
+        "Elimination": "Yes",
+        "Materials Needed": "Rope or pool noodles",
+        "Cost": ""
+    },
+    {
+        "Game Name": "Memory Walk",
+        "Type/Theme": "Squid Game Style",
+        "Description": "Memorize and walk safe path; mistake = out or restart",
+        "Difficulty": "Medium",
+        "Elimination": "Yes",
+        "Materials Needed": "Tiles/cards, marked pattern",
+        "Cost": ""
+    },
+    {
+        "Game Name": "Balloon Roulette",
+        "Type/Theme": "Squid Game Style",
+        "Description": "One balloon contains “Boom”; popping it = out",
+        "Difficulty": "Easy",
+        "Elimination": "Yes",
+        "Materials Needed": "Balloons, paper slips",
+        "Cost": ""
+    },
+    {
+        "Game Name": "Balance Beam Showdown",
+        "Type/Theme": "Skill-Based Balance",
+        "Description": "Game requires balance + object on head/tray",
+        "Difficulty": "Medium",
+        "Elimination": "Yes",
+        "Materials Needed": "Board, bricks, tray/bean bag",
+        "Cost": ""
+    },
+    {
+        "Game Name": "Spoon & Egg Relay",
+        "Type/Theme": "Party Classic",
+        "Description": "Race while balancing egg on spoon",
+        "Difficulty": "Easy",
+        "Elimination": "No",
+        "Materials Needed": "Spoons, eggs (plastic or real)",
+        "Cost": ""
+    },
+    {
+        "Game Name": "Water Balloon Toss",
+        "Type/Theme": "Party Classic",
+        "Description": "Partner tosses balloon increasing distance",
+        "Difficulty": "Easy",
+        "Elimination": "No",
+        "Materials Needed": "Water balloons",
+        "Cost": ""
+    },
+    {
+        "Game Name": "Sack Race",
+        "Type/Theme": "Party Classic",
+        "Description": "Jump in a sack to the finish",
+        "Difficulty": "Easy",
+        "Elimination": "No",
+        "Materials Needed": "Pillowcases or burlap sacks",
+        "Cost": ""
+    },
+    {
+        "Game Name": "Three-Legged Race",
+        "Type/Theme": "Party Classic",
+        "Description": "Run with a partner’s leg tied to yours",
+        "Difficulty": "Easy",
+        "Elimination": "No",
+        "Materials Needed": "String or bandanas",
+        "Cost": ""
+    },
+    {
+        "Game Name": "Human Ring Toss",
+        "Type/Theme": "Party/Skill",
+        "Description": "Throw hula hoops over human targets",
+        "Difficulty": "Easy",
+        "Elimination": "No",
+        "Materials Needed": "Hula hoops",
+        "Cost": ""
+    },
+    {
+        "Game Name": "Musical Hula Hoops",
+        "Type/Theme": "Party Game",
+        "Description": "Like musical chairs but with hula hoops",
+        "Difficulty": "Easy",
+        "Elimination": "Yes",
+        "Materials Needed": "Hula hoops, music",
+        "Cost": ""
+    },
+    {
+        "Game Name": "Scavenger Hunt",
+        "Type/Theme": "Strategy-Based",
+        "Description": "Find items or solve riddles hidden around",
+        "Difficulty": "Medium",
+        "Elimination": "No",
+        "Materials Needed": "Clue cards, small items",
+        "Cost": ""
+    },
+    {
+        "Game Name": "Charades (Olympic Edition)",
+        "Type/Theme": "Strategy-Based",
+        "Description": "Mime sports or activities",
+        "Difficulty": "Easy",
+        "Elimination": "No",
+        "Materials Needed": "Charade cards",
+        "Cost": ""
+    },
+    {
+        "Game Name": "Tower Building Challenge",
+        "Type/Theme": "Strategy-Based",
+        "Description": "Race to build tallest tower (cups, marshmallows)",
+        "Difficulty": "Easy",
+        "Elimination": "No",
+        "Materials Needed": "Cups, marshmallows, sticks",
+        "Cost": ""
+    },
+    {
+        "Game Name": "Code Word Relay",
+        "Type/Theme": "Strategy/Teamwork",
+        "Description": "Pass a secret message down the line",
+        "Difficulty": "Easy",
+        "Elimination": "No",
+        "Materials Needed": "None",
+        "Cost": ""
+    },
+    {
+        "Game Name": "Obstacle Course",
+        "Type/Theme": "Sport/Challenge",
+        "Description": "Multiple stations: crawl, jump, throw, balance",
+        "Difficulty": "Medium",
+        "Elimination": "No",
+        "Materials Needed": "Cones, rope, markers",
+        "Cost": ""
+    },
+    {
+        "Game Name": "Tug-of-War",
+        "Type/Theme": "Sport/Team",
+        "Description": "Team rope pull, first to pull other over line wins",
+        "Difficulty": "Medium",
+        "Elimination": "Yes",
+        "Materials Needed": "Rope, markers",
+        "Cost": ""
+    },
+    {
+        "Game Name": "Frisbee Accuracy",
+        "Type/Theme": "Sport/Skill",
+        "Description": "Throw frisbee at targets (buckets, hoops)",
+        "Difficulty": "Easy",
+        "Elimination": "No",
+        "Materials Needed": "Frisbees, targets",
+        "Cost": ""
+    },
+    {
+        "Game Name": "Mini Golf Challenge",
+        "Type/Theme": "Sport/Skill",
+        "Description": "Putt golf balls into DIY holes",
+        "Difficulty": "Medium",
+        "Elimination": "No",
+        "Materials Needed": "Golf balls, cups",
+        "Cost": ""
+    },
+    {
+        "Game Name": "Basketball Shootout",
+        "Type/Theme": "Sport/Skill",
+        "Description": "Timed shooting challenge or HORSE",
+        "Difficulty": "Medium",
+        "Elimination": "No",
+        "Materials Needed": "Hoop, balls",
+        "Cost": ""
+    },
+    {
+        "Game Name": "Wheelbarrow Race",
+        "Type/Theme": "Sport/Challenge",
+        "Description": "One person walks on hands, other holds legs",
+        "Difficulty": "Hard",
+        "Elimination": "No",
+        "Materials Needed": "None",
+        "Cost": ""
+    },
+    {
+        "Game Name": "Plank Contest",
+        "Type/Theme": "Fitness Challenge",
+        "Description": "See who holds a plank the longest",
+        "Difficulty": "Hard",
+        "Elimination": "Yes",
+        "Materials Needed": "None",
+        "Cost": ""
+    },
+    {
+        "Game Name": "Sprint Tournament",
+        "Type/Theme": "Sport/Track",
+        "Description": "50m dash, bracket style",
+        "Difficulty": "Medium",
+        "Elimination": "Yes or No",
+        "Materials Needed": "Cones/markers",
+        "Cost": ""
+    },
+    {
+        "Game Name": "Backyard Kickball",
+        "Type/Theme": "Sport/Team",
+        "Description": "Simple baseball-style team game",
+        "Difficulty": "Medium",
+        "Elimination": "No",
+        "Materials Needed": "Ball, bases",
+        "Cost": ""
+    },
+    {
+        "Game Name": "Amazing Race (Mini)",
+        "Type/Theme": "Strategy + Physical",
+        "Description": "Multi-station race with tasks and clues",
+        "Difficulty": "Hard",
+        "Elimination": "Yes or Points",
+        "Materials Needed": "Clues, props per station",
+        "Cost": ""
+    },
+    {
+        "Game Name": "Water Cup Relay",
+        "Type/Theme": "Fun/Coordination",
+        "Description": "Pass leaky cups to fill a final bucket",
+        "Difficulty": "Easy",
+        "Elimination": "No",
+        "Materials Needed": "Cups with holes, bucket",
+        "Cost": ""
+    },
+    {
+        "Game Name": "Family Feud Showdown",
+        "Type/Theme": "Trivia/Team",
+        "Description": "Two teams guess popular answers",
+        "Difficulty": "Easy",
+        "Elimination": "Yes (point-based)",
+        "Materials Needed": "Custom questions",
+        "Cost": ""
+    },
+    {
+        "Game Name": "Corn Hole",
+        "Type/Theme": "Sport/Skill",
+        "Description": "Toss bean bags into a hole on a board for points",
+        "Difficulty": "Easy",
+        "Elimination": "No",
+        "Materials Needed": "Cornhole boards, bean bags",
+        "Cost": ""
+    },
+    {
+        "Game Name": "Potato Sack Race",
+        "Type/Theme": "Party Classic",
+        "Description": "Hop in a sack to the finish line",
+        "Difficulty": "Easy",
+        "Elimination": "No",
+        "Materials Needed": "Burlap sacks or pillowcases",
+        "Cost": ""
+    },
+    {
+        "Game Name": "Tug-o-War",
+        "Type/Theme": "Sport/Team",
+        "Description": "Teams pull a rope; first to pull other over line wins",
+        "Difficulty": "Medium",
+        "Elimination": "Yes",
+        "Materials Needed": "Rope, markers",
+        "Cost": ""
+    },
+    {
+        "Game Name": "Pickleball",
+        "Type/Theme": "Sport/Game",
+        "Description": "Paddle game over a net, similar to tennis",
+        "Difficulty": "Medium",
+        "Elimination": "No",
+        "Materials Needed": "Paddles, net, ball",
+        "Cost": ""
+    },
+    {
+        "Game Name": "Volleyball",
+        "Type/Theme": "Sport/Team",
+        "Description": "Hit ball over net, avoid letting it touch ground",
+        "Difficulty": "Medium",
+        "Elimination": "No",
+        "Materials Needed": "Net, volleyball",
+        "Cost": ""
+    },
+    {
+        "Game Name": "Archery",
+        "Type/Theme": "Skill-Based",
+        "Description": "Shoot arrows at a target for points",
+        "Difficulty": "Medium",
+        "Elimination": "No",
+        "Materials Needed": "Bow, arrows, target",
+        "Cost": ""
+    },
+    {
+        "Game Name": "BB Gun",
+        "Type/Theme": "Skill-Based",
+        "Description": "Shoot at targets with a BB gun for accuracy",
+        "Difficulty": "Medium",
+        "Elimination": "Yes",
+        "Materials Needed": "BB guns, safety gear, targets",
+        "Cost": ""
+    },
+    {
+        "Game Name": "Obstacle Course",
+        "Type/Theme": "Sport/Challenge",
+        "Description": "Complete various physical challenges in sequence",
+        "Difficulty": "Medium",
+        "Elimination": "No",
+        "Materials Needed": "Cones, rope, markers",
+        "Cost": ""
+    },
+    {
+        "Game Name": "Foot Race",
+        "Type/Theme": "Sport/Track",
+        "Description": "Classic running race to the finish",
+        "Difficulty": "Easy",
+        "Elimination": "No",
+        "Materials Needed": "Markers, stopwatch (optional)",
+        "Cost": ""
+    },
+    {
+        "Game Name": "Rally Racing",
+        "Type/Theme": "Sport/Challenge",
+        "Description": "Teams complete a course with multiple stations or vehicles (pedal-based)",
+        "Difficulty": "Hard",
+        "Elimination": "No",
+        "Materials Needed": "Bikes, scooters, markers",
+        "Cost": ""
+    },
+    {
+        "Game Name": "Spikeball",
+        "Type/Theme": "Sport/Skill",
+        "Description": "Hit ball off round net; team game with quick reflexes",
+        "Difficulty": "Medium",
+        "Elimination": "No",
+        "Materials Needed": "Spikeball set",
+        "Cost": ""
+    },
+    {
+        "Game Name": "Darts",
+        "Type/Theme": "Skill-Based",
+        "Description": "Throw darts at a target to score points",
+        "Difficulty": "Easy",
+        "Elimination": "No",
+        "Materials Needed": "Dartboard, darts",
+        "Cost": ""
+    },
+    {
+        "Game Name": "Giant Ludo",
+        "Type/Theme": "Party/Board Game",
+        "Description": "Walkable version of Ludo; human pieces move via dice",
+        "Difficulty": "Easy",
+        "Elimination": "No",
+        "Materials Needed": "Giant board, dice",
+        "Cost": ""
+    },
+    {
+        "Game Name": "Sponge Bucket",
+        "Type/Theme": "Fun/Relay",
+        "Description": "Soak sponge, run to bucket, squeeze; repeat to fill bucket",
+        "Difficulty": "Easy",
+        "Elimination": "No",
+        "Materials Needed": "Sponges, water buckets",
+        "Cost": ""
+    },
+    {
+        "Game Name": "Musical Chairs",
+        "Type/Theme": "Party Classic",
+        "Description": "Remove chairs with each round of music; last seated wins",
+        "Difficulty": "Easy",
+        "Elimination": "Yes",
+        "Materials Needed": "Chairs, music",
+        "Cost": ""
+    },
+    {
+        "Game Name": "Mine Grid",
+        "Type/Theme": "Strategy/Memory",
+        "Description": "Walk a grid with hidden “mines”; misstep = out or restart",
+        "Difficulty": "Medium",
+        "Elimination": "Yes",
+        "Materials Needed": "Grid layout, markers",
+        "Cost": ""
+    },
+    {
+        "Game Name": "Egg Race (Plastic)",
+        "Type/Theme": "Party Classic",
+        "Description": "Balance a plastic egg on a spoon while racing",
+        "Difficulty": "Easy",
+        "Elimination": "No",
+        "Materials Needed": "Spoons, plastic eggs",
+        "Cost": ""
+    },
+    {
+        "Game Name": "Apple Bobbing",
+        "Type/Theme": "Party Classic",
+        "Description": "Grab apples from water using only your mouth",
+        "Difficulty": "Easy",
+        "Elimination": "No",
+        "Materials Needed": "Tub, water, apples",
+        "Cost": ""
+    },
+    {
+        "Game Name": "Kan Jam",
+        "Type/Theme": "Sport/Frisbee",
+        "Description": "Teams throw frisbee to hit or slot into can",
+        "Difficulty": "Medium",
+        "Elimination": "No",
+        "Materials Needed": "Frisbee, Kan Jam set",
+        "Cost": ""
+    },
+    {
+        "Game Name": "Flag Football",
+        "Type/Theme": "Sport/Team",
+        "Description": "Non-contact football; pull flags instead of tackling",
+        "Difficulty": "Medium",
+        "Elimination": "No",
+        "Materials Needed": "Football, flags",
+        "Cost": ""
+    },
+    {
+        "Game Name": "Skyzone/Dodgeball",
+        "Type/Theme": "Sport/Jump Arena",
+        "Description": "Dodgeball on trampolines or indoor court",
+        "Difficulty": "Medium",
+        "Elimination": "Yes",
+        "Materials Needed": "Dodgeballs, access to Skyzone/trampolines",
+        "Cost": ""
+    },
+    {
+        "Game Name": "Kickball",
+        "Type/Theme": "Sport/Team",
+        "Description": "Baseball-style game using a kickball",
+        "Difficulty": "Medium",
+        "Elimination": "No",
+        "Materials Needed": "Kickball, bases",
+        "Cost": ""
+    },
+    {
+        "Game Name": "Minefield Crawl",
+        "Type/Theme": "Elimination",
+        "Description": "Players crawl through a marked area with \"mines\" (plates/cones). Touch a mine = eliminated.",
+        "Difficulty": "Medium",
+        "Elimination": "Paper plates or cones",
+        "Materials Needed": "Individual rounds",
+        "Cost": ""
+    },
+    {
+        "Game Name": "Hot Potato With a Twist",
+        "Type/Theme": "Elimination",
+        "Description": "Object passed around with music. Whoever holds it when music stops must complete a task. Fail = out.",
+        "Difficulty": "Easy",
+        "Elimination": "Object to pass, music, task cards",
+        "Materials Needed": "Timed round",
+        "Cost": ""
+    },
+    {
+        "Game Name": "Quick Draw",
+        "Type/Theme": "Elimination",
+        "Description": "Two players stand back-to-back, spin on “GO” and pretend to draw (finger or water pistols). Slower draw = out.",
+        "Difficulty": "Easy",
+        "Elimination": "None or water pistols",
+        "Materials Needed": "Tournament style",
+        "Cost": ""
+    },
+    {
+        "Game Name": "Simon Says Showdown",
+        "Type/Theme": "Elimination",
+        "Description": "Players must only follow commands starting with “Simon says.” Mistakes = out.",
+        "Difficulty": "Medium",
+        "Elimination": "None",
+        "Materials Needed": "Group game",
+        "Cost": ""
+    },
+    {
+        "Game Name": "Rock Paper Scissors Ladder",
+        "Type/Theme": "Elimination ",
+        "Description": "Players move forward on a path by winning Rock Paper Scissors. Lose = restart.",
+        "Difficulty": "Medium",
+        "Elimination": "None",
+        "Materials Needed": "Tournament path",
+        "Cost": ""
+    },
+    {
+        "Game Name": "Box of Doom",
+        "Type/Theme": "Elimination ",
+        "Description": "Players draw slips from a box. Some say “safe,” one says “OUT.”",
+        "Difficulty": "Easy",
+        "Elimination": "Box, slips of paper",
+        "Materials Needed": "Random draw",
+        "Cost": ""
+    },
+    {
+        "Game Name": "Tug the Marker",
+        "Type/Theme": "Elimination ",
+        "Description": "Players circle a marker and grab it on “GO.” Last to grab = out.",
+        "Difficulty": "Medium",
+        "Elimination": "Cone or sock or toy",
+        "Materials Needed": "Timed reflex round",
+        "Cost": ""
+    },
+    {
+        "Game Name": "Flip the Cup",
+        "Type/Theme": "Elimination ",
+        "Description": "Players must flip a plastic cup upright using one hand. Fail 3 times = out.",
+        "Difficulty": "Easy",
+        "Elimination": "Plastic cups",
+        "Materials Needed": "Speed + precision",
+        "Cost": ""
+    },
+    {
+        "Game Name": "Tornado Cups",
+        "Type/Theme": "Elimination ",
+        "Description": "Players stack and unstack cups in a pyramid fast. Slowest = out.",
+        "Difficulty": "Medium",
+        "Elimination": "6–10 plastic cups per player",
+        "Materials Needed": "Speed challenge",
+        "Cost": ""
+    }
+]

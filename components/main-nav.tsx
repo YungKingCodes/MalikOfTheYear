@@ -41,6 +41,11 @@ export function MainNav() {
       label: "Games",
       active: pathname === "/games",
     },
+    user && {
+      href: "/feedback",
+      label: "Feedback",
+      active: pathname === "/feedback",
+    },
   ].filter(Boolean)
 
   return (

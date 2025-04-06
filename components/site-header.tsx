@@ -208,12 +208,6 @@ export function SiteHeader() {
                 </div>
               ) : user ? (
                 <>
-                  <Button asChild variant="ghost" size="sm">
-                    <Link href="/feedback" className="flex items-center">
-                      <MessageSquare className="h-4 w-4 mr-2" />
-                      Feedback
-                    </Link>
-                  </Button>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="ghost" size="sm" className="relative h-8 w-8 rounded-full">
@@ -242,7 +236,7 @@ export function SiteHeader() {
                       </DropdownMenuItem>
                       {user.role === "admin" && (
                         <DropdownMenuItem asChild>
-                          <Link href="/admin">Admin Panel</Link>
+                          <Link href="/admin/event-management">Event Management</Link>
                         </DropdownMenuItem>
                       )}
                       <DropdownMenuSeparator />

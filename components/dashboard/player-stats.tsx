@@ -7,6 +7,7 @@ import { useEffect, useState } from "react"
 import { getTopPlayers } from "@/lib/data"
 import { useSession } from "next-auth/react"
 import { canViewPlayerScores } from "@/lib/auth-utils"
+import { LoadingSpinner } from "@/components/loading-skeletons/competition-detail-skeleton"
 
 interface Player {
   _id: string
@@ -64,7 +65,7 @@ export function PlayerStats() {
   }, [])
 
   if (loading) {
-    return <div className="py-4 text-center text-muted-foreground">Loading top players...</div>
+    return <LoadingSpinner text="Loading top players..." />
   }
 
   if (error) {

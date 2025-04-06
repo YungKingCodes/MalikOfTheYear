@@ -17,19 +17,23 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { getTeamsForCaptainOverride, updateTeamCaptain } from "@/app/actions/teams"
+
+interface TeamMember {
+  id: string
+  name: string | null
+  email: string
+  image: string | null
+  role?: string
+}
 
 interface Team {
   id: string
   name: string
-  members: TeamMember[]
+  score: number
+  maxScore: number
   captain: TeamMember | null
-}
-
-interface TeamMember {
-  id: string
-  name: string
-  avatar: string
-  isCaptain: boolean
+  members: TeamMember[]
 }
 
 export function TeamCaptainOverride() {
@@ -37,6 +41,7 @@ export function TeamCaptainOverride() {
   const [teams, setTeams] = useState<Team[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [saveTeamId, setSaveTeamId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -45,105 +50,34 @@ export function TeamCaptainOverride() {
     const fetchTeams = async () => {
       setLoading(true)
       try {
-        // In a real app, fetch from API
-        // For now, use mock data
-        await new Promise((resolve) => setTimeout(resolve, 500))
-
-        // Mock teams data
-        const mockTeams: Team[] = [
-          {
-            id: "team1",
-            name: "Mountain Goats",
-            captain: {
-              id: "user1",
-              name: "Sarah Johnson",
-              avatar: "SJ",
-              isCaptain: true,
-            },
-            members: [
-              {
-                id: "user1",
-                name: "Sarah Johnson",
-                avatar: "SJ",
-                isCaptain: true,
-              },
-              {
-                id: "user2",
-                name: "Michael Chen",
-                avatar: "MC",
-                isCaptain: false,
-              },
-              {
-                id: "user3",
-                name: "Emily Rodriguez",
-                avatar: "ER",
-                isCaptain: false,
-              },
-            ],
-          },
-          {
-            id: "team2",
-            name: "Royal Rams",
-            captain: {
-              id: "user4",
-              name: "James Wilson",
-              avatar: "JW",
-              isCaptain: true,
-            },
-            members: [
-              {
-                id: "user4",
-                name: "James Wilson",
-                avatar: "JW",
-                isCaptain: true,
-              },
-              {
-                id: "user5",
-                name: "Lisa Thompson",
-                avatar: "LT",
-                isCaptain: false,
-              },
-              {
-                id: "user6",
-                name: "David Kim",
-                avatar: "DK",
-                isCaptain: false,
-              },
-            ],
-          },
-          {
-            id: "team3",
-            name: "Athletic Antelopes",
-            captain: {
-              id: "user7",
-              name: "Robert Brown",
-              avatar: "RB",
-              isCaptain: true,
-            },
-            members: [
-              {
-                id: "user7",
-                name: "Robert Brown",
-                avatar: "RB",
-                isCaptain: true,
-              },
-              {
-                id: "user8",
-                name: "Jennifer Lee",
-                avatar: "JL",
-                isCaptain: false,
-              },
-              {
-                id: "user9",
-                name: "Thomas Garcia",
-                avatar: "TG",
-                isCaptain: false,
-              },
-            ],
-          },
-        ]
-
-        setTeams(mockTeams)
+        const teamsData = await getTeamsForCaptainOverride();
+        
+        if (Array.isArray(teamsData)) {
+          const mappedTeams: Team[] = teamsData.map(team => ({
+            id: team.id,
+            name: team.name,
+            score: team.score,
+            maxScore: team.maxScore,
+            captain: team.captain ? {
+              id: team.captain.id,
+              name: team.captain.name,
+              email: team.captain.email || '',
+              image: team.captain.image,
+              role: 'captain'
+            } : null,
+            members: team.members.map(member => ({
+              id: member.id,
+              name: member.name,
+              email: member.email || '',
+              image: member.image,
+              role: member.role || 'player'
+            }))
+          }));
+          
+          setTeams(mappedTeams);
+        } else {
+          throw new Error("Invalid teams data format");
+        }
       } catch (error) {
         console.error("Failed to fetch teams:", error)
         toast({
@@ -168,10 +102,6 @@ export function TeamCaptainOverride() {
           return {
             ...team,
             captain: newCaptain,
-            members: team.members.map((member) => ({
-              ...member,
-              isCaptain: member.id === newCaptainId,
-            })),
           }
         }
         return team
@@ -179,26 +109,32 @@ export function TeamCaptainOverride() {
     )
   }
 
-  const handleSave = async () => {
+  const handleSave = async (teamId: string) => {
     setSaving(true)
+    setSaveTeamId(teamId)
+    
     try {
-      // In a real app, save to API
-      // For now, just simulate a delay
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      const team = teams.find(t => t.id === teamId);
+      if (!team || !team.captain) {
+        throw new Error("Team or captain not found");
+      }
+      
+      await updateTeamCaptain(teamId, team.captain.id);
 
       toast({
-        title: "Teams Updated",
-        description: "Team captain changes have been saved successfully.",
+        title: "Team Updated",
+        description: `Captain for ${team.name} has been updated successfully.`,
       })
     } catch (error) {
-      console.error("Failed to save team changes:", error)
+      console.error("Failed to save team captain:", error)
       toast({
         title: "Error",
-        description: "Failed to save team changes. Please try again.",
+        description: "Failed to update team captain. Please try again.",
         variant: "destructive",
       })
     } finally {
       setSaving(false)
+      setSaveTeamId(null)
     }
   }
 
@@ -207,183 +143,147 @@ export function TeamCaptainOverride() {
     setDialogOpen(true)
   }
 
-  const filteredTeams = teams.filter(
-    (team) =>
-      team.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      team.captain?.name.toLowerCase().includes(searchQuery.toLowerCase()),
+  // Filter teams based on search query
+  const filteredTeams = teams.filter((team) =>
+    team.name.toLowerCase().includes(searchQuery.toLowerCase()),
   )
 
-  if (loading) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Team Captain Management</CardTitle>
-          <CardDescription>Loading teams...</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex justify-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-          </div>
-        </CardContent>
-      </Card>
-    )
-  }
-
   return (
-    <>
-      <Card>
-        <CardHeader>
-          <CardTitle>Team Captain Management</CardTitle>
-          <CardDescription>Override team captains and manage team leadership</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="mb-6">
-            <div className="relative">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                type="search"
-                placeholder="Search teams or captains..."
-                className="pl-8"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
+    <div className="space-y-8">
+      <div className="flex flex-wrap items-center gap-4">
+        <div className="relative flex-1 min-w-[240px]">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            type="search"
+            placeholder="Search teams..."
+            className="pl-8"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center p-8">
+          <div className="text-center">
+            <div className="text-muted-foreground">Loading teams...</div>
           </div>
-
-          <div className="rounded-md border">
-            <div className="grid grid-cols-4 p-4 font-medium">
-              <div>Team</div>
-              <div>Current Captain</div>
-              <div>Members</div>
-              <div className="text-right">Actions</div>
-            </div>
-            <div className="divide-y">
-              {filteredTeams.map((team) => (
-                <div key={team.id} className="grid grid-cols-4 p-4 items-center">
-                  <div className="flex items-center gap-3">
-                    <Avatar className="h-8 w-8">
-                      <AvatarImage
-                        src={`/placeholder.svg?height=32&width=32&text=${team.name.substring(0, 2)}`}
-                        alt={team.name}
-                      />
-                      <AvatarFallback>{team.name.substring(0, 2)}</AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <p className="text-sm font-medium">{team.name}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {team.captain ? (
-                      <>
-                        <Avatar className="h-6 w-6">
-                          <AvatarImage
-                            src={`/placeholder.svg?height=24&width=24&text=${team.captain.avatar}`}
-                            alt={team.captain.name}
-                          />
-                          <AvatarFallback>{team.captain.avatar}</AvatarFallback>
-                        </Avatar>
-                        <span className="text-sm">{team.captain.name}</span>
-                      </>
-                    ) : (
-                      <Badge variant="outline" className="text-amber-600 border-amber-200 bg-amber-50">
-                        No Captain
-                      </Badge>
-                    )}
-                  </div>
-                  <div className="text-sm">{team.members.length} members</div>
-                  <div className="flex justify-end gap-2">
-                    <Button variant="outline" size="sm" onClick={() => openTeamDialog(team)}>
-                      Change Captain
-                    </Button>
-                  </div>
-                </div>
-              ))}
-
-              {filteredTeams.length === 0 && (
-                <div className="p-4 text-center text-muted-foreground">No teams found matching your search.</div>
-              )}
-            </div>
+        </div>
+      ) : filteredTeams.length === 0 ? (
+        <div className="flex items-center justify-center p-8 border rounded-lg">
+          <div className="text-center">
+            <h3 className="mb-2 text-lg font-medium">No Teams Found</h3>
+            <p className="text-muted-foreground">Try adjusting your search or filters.</p>
           </div>
-        </CardContent>
-        <CardFooter className="flex justify-end">
-          <Button onClick={handleSave} disabled={saving} className="gap-2">
-            {saving ? (
-              <>
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                Saving...
-              </>
-            ) : (
-              <>
-                <Save className="h-4 w-4" />
-                Save Changes
-              </>
-            )}
-          </Button>
-        </CardFooter>
-      </Card>
-
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Change Team Captain</DialogTitle>
-            <DialogDescription>
-              {selectedTeam ? `Select a new captain for ${selectedTeam.name}` : "Select a new team captain"}
-            </DialogDescription>
-          </DialogHeader>
-
-          {selectedTeam && (
-            <>
-              <div className="space-y-4 py-4">
-                <div className="flex items-center gap-3 mb-4">
-                  <Avatar className="h-10 w-10">
-                    <AvatarImage
-                      src={`/placeholder.svg?height=40&width=40&text=${selectedTeam.name.substring(0, 2)}`}
-                      alt={selectedTeam.name}
-                    />
-                    <AvatarFallback>{selectedTeam.name.substring(0, 2)}</AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <p className="font-medium">{selectedTeam.name}</p>
-                    <p className="text-sm text-muted-foreground">
-                      Current Captain: {selectedTeam.captain?.name || "None"}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Select New Captain</label>
+        </div>
+      ) : (
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {filteredTeams.map((team) => (
+            <Card key={team.id} className="overflow-hidden">
+              <CardHeader className="bg-muted/50">
+                <CardTitle className="flex items-center justify-between">
+                  <span>{team.name}</span>
+                  <Badge variant="outline">{team.members.length} members</Badge>
+                </CardTitle>
+                <CardDescription>Current captain: {team.captain?.name || "None"}</CardDescription>
+              </CardHeader>
+              <CardContent className="p-4">
+                <div className="space-y-4">
                   <Select
-                    defaultValue={selectedTeam.captain?.id}
-                    onValueChange={(value) => handleChangeCaptain(selectedTeam.id, value)}
+                    value={team.captain?.id || ""}
+                    onValueChange={(value) => handleChangeCaptain(team.id, value)}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select a team member" />
+                      <SelectValue placeholder="Select a captain" />
                     </SelectTrigger>
                     <SelectContent>
-                      {selectedTeam.members.map((member) => (
+                      {team.members.map((member) => (
                         <SelectItem key={member.id} value={member.id}>
                           <div className="flex items-center gap-2">
-                            {member.isCaptain && <Crown className="h-3.5 w-3.5 text-amber-500" />}
-                            {member.name}
+                            <Avatar className="h-6 w-6">
+                              <AvatarImage
+                                src={member.image || `/placeholder.svg?height=24&width=24&text=${member.name?.substring(0, 2) || "??"}`}
+                                alt={member.name || "Unknown"}
+                              />
+                              <AvatarFallback>{member.name ? member.name.substring(0, 2).toUpperCase() : "??"}</AvatarFallback>
+                            </Avatar>
+                            <span>{member.name || "Unknown"}</span>
                           </div>
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
-                </div>
-              </div>
 
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button onClick={() => setDialogOpen(false)}>Confirm Change</Button>
-              </DialogFooter>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
-    </>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => openTeamDialog(team)}
+                    >
+                      View Team
+                    </Button>
+                    <Button
+                      className="w-full"
+                      onClick={() => handleSave(team.id)}
+                      disabled={saving && saveTeamId === team.id}
+                    >
+                      {saving && saveTeamId === team.id ? (
+                        "Saving..."
+                      ) : (
+                        <>
+                          <Save className="h-4 w-4 mr-2" /> Save
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {selectedTeam && (
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>{selectedTeam.name}</DialogTitle>
+              <DialogDescription>Team Members</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 max-h-[400px] overflow-y-auto">
+              {selectedTeam.members.map((member) => (
+                <div
+                  key={member.id}
+                  className="flex items-center justify-between p-2 border rounded"
+                >
+                  <div className="flex items-center gap-3">
+                    <Avatar>
+                      <AvatarImage
+                        src={member.image || `/placeholder.svg?height=40&width=40&text=${member.name?.substring(0, 2) || "??"}`}
+                        alt={member.name || "Unknown"}
+                      />
+                      <AvatarFallback>{member.name ? member.name.substring(0, 2).toUpperCase() : "??"}</AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <p className="font-medium">{member.name || "Unknown"}</p>
+                      <p className="text-sm text-muted-foreground">{member.email}</p>
+                    </div>
+                  </div>
+                  {selectedTeam.captain?.id === member.id && (
+                    <Badge className="bg-primary">
+                      <Crown className="h-3 w-3 mr-1" /> Captain
+                    </Badge>
+                  )}
+                </div>
+              ))}
+            </div>
+            <DialogFooter>
+              <Button onClick={() => setDialogOpen(false)}>Close</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+    </div>
   )
 }
 

@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { LoadingSpinner } from "@/components/loading-skeletons/competition-detail-skeleton"
 
 interface Player {
   _id: string
@@ -61,7 +62,7 @@ export function PlayersTab() {
   }, [])
 
   if (loading) {
-    return <div className="py-4 text-center text-muted-foreground">Loading players...</div>
+    return <LoadingSpinner text="Loading players..." />
   }
 
   if (error) {
