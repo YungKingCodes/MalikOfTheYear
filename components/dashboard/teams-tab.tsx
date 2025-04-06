@@ -47,12 +47,22 @@ export function TeamsTab() {
   const [teams, setTeams] = useState<Team[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [votingTeams, setVotingTeams] = useState<any[]>([])
+  const [votingTeamsLoading, setVotingTeamsLoading] = useState(true)
+  const [votingTeamsError, setVotingTeamsError] = useState<string | null>(null)
   const { data: session } = useSession()
   const user = session?.user
   const isAdmin = user?.role === "admin"
 
+  // Error handling utility
+  const handleAsyncError = (err: any, errorSetter: React.Dispatch<React.SetStateAction<string | null>>, defaultMessage: string) => {
+    console.error(defaultMessage, err);
+    errorSetter(err instanceof Error ? err.message : defaultMessage);
+  };
+
   useEffect(() => {
     async function loadTeams() {
+      // Load all teams
       try {
         setLoading(true)
         const teamsData = await getAllTeams()
@@ -62,21 +72,44 @@ export function TeamsTab() {
             members: team.members || []
           }))
           setTeams(typedTeams)
+          setError(null)
         } else {
           setTeams([])
           setError("Invalid data format received from server")
           console.error("Invalid teams data format:", teamsData)
         }
       } catch (err) {
-        console.error("Failed to load teams:", err)
-        setError("Failed to load teams. Please try again later.")
+        handleAsyncError(err, setError, "Failed to load teams. Please try again later.")
         setTeams([])
       } finally {
         setLoading(false)
       }
     }
 
+    async function loadVotingTeams() {
+      // Load voting teams separately
+      try {
+        setVotingTeamsLoading(true)
+        const votingTeamsData = await getTeamsInCaptainVoting()
+        if (Array.isArray(votingTeamsData)) {
+          setVotingTeams(votingTeamsData)
+          setVotingTeamsError(null)
+        } else {
+          setVotingTeams([])
+          setVotingTeamsError("Invalid data format for voting teams")
+          console.error("Invalid voting teams data format:", votingTeamsData)
+        }
+      } catch (err) {
+        handleAsyncError(err, setVotingTeamsError, "Failed to load teams in voting")
+        setVotingTeams([])
+      } finally {
+        setVotingTeamsLoading(false)
+      }
+    }
+
+    // Load data independently to prevent one failure affecting the other
     loadTeams()
+    loadVotingTeams()
   }, [])
 
   const handleRandomizeTeams = () => {
@@ -182,9 +215,6 @@ export function TeamsTab() {
                               Edit
                             </Button>
                           )}
-                          <Button variant="ghost" size="sm">
-                            View
-                          </Button>
                         </div>
                       </div>
                     ))}
@@ -243,9 +273,6 @@ export function TeamsTab() {
                                 Add Players
                               </Button>
                             )}
-                            <Button variant="ghost" size="sm">
-                              View
-                            </Button>
                           </div>
                         </div>
                       ))}
@@ -260,55 +287,75 @@ export function TeamsTab() {
           <Card>
             <CardHeader>
               <CardTitle>Captain Voting</CardTitle>
-              <CardDescription>Teams currently in the process of voting for a captain</CardDescription>
+              <CardDescription>
+                Teams currently in the process of voting for a captain
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-8">
-                <div className="rounded-md border">
-                  <div className="grid grid-cols-5 p-4 font-medium">
-                    <div>Team</div>
-                    <div>Members</div>
-                    <div>Votes Cast</div>
-                    <div>Status</div>
-                    <div className="text-right">Actions</div>
-                  </div>
-                  <div className="divide-y">
-                    {Array.from({ length: 2 }).map((_, i) => (
-                      <div key={i} className="grid grid-cols-5 p-4 items-center">
-                        <div className="flex items-center gap-3">
-                          <Avatar className="h-8 w-8">
-                            <AvatarImage
-                              src={`/placeholder.svg?height=32&width=32&text=T${i + 7}`}
-                              alt={`Team ${i + 7}`}
-                            />
-                            <AvatarFallback>T{i + 7}</AvatarFallback>
-                          </Avatar>
-                          <div>
-                            <p className="text-sm font-medium">Team {i + 7}</p>
+              {votingTeamsLoading ? (
+                <LoadingSpinner text="Loading voting teams..." />
+              ) : votingTeamsError ? (
+                <div className="py-4 text-center text-destructive">{votingTeamsError}</div>
+              ) : (
+                <div className="space-y-8">
+                  <div className="rounded-md border">
+                    <div className="grid grid-cols-5 p-4 font-medium">
+                      <div>Team</div>
+                      <div>Members</div>
+                      <div>Votes Cast</div>
+                      <div>Status</div>
+                      <div className="text-right">Actions</div>
+                    </div>
+                    <div className="divide-y">
+                      {votingTeams.length > 0 ? (
+                        votingTeams.map((team) => (
+                          <div key={team._id} className="grid grid-cols-5 p-4 items-center">
+                            <div className="flex items-center gap-3">
+                              <Avatar className="h-8 w-8">
+                                <AvatarImage
+                                  src={`/placeholder.svg?height=32&width=32&text=${team.name.substring(0, 2)}`}
+                                  alt={team.name}
+                                />
+                                <AvatarFallback>{team.name.substring(0, 2)}</AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <p className="text-sm font-medium">{team.name}</p>
+                              </div>
+                            </div>
+                            <div className="text-sm">{team.members?.length || 0}/{team.totalMembers}</div>
+                            <div className="text-sm">{team.votesCast}/{team.totalMembers}</div>
+                            <div>
+                              <Badge 
+                                variant={team.votingPercentage === 100 ? "default" : "outline"} 
+                                className="text-xs"
+                              >
+                                {team.votingPercentage === 100 ? "Complete" : "In Progress"}
+                              </Badge>
+                            </div>
+                            <div className="flex justify-end gap-2">
+                              {isAdmin && (
+                                <>
+                                  <Button variant="outline" size="sm">
+                                    View Votes
+                                  </Button>
+                                  <Button variant="ghost" size="sm">
+                                    Finalize
+                                  </Button>
+                                </>
+                              )}
+                            </div>
                           </div>
+                        ))
+                      ) : (
+                        <div className="p-4 text-center text-muted-foreground">
+                          <p>No teams are currently in the captain voting process</p>
+                          <p className="text-xs mt-2">Teams without captains will appear here when they have members.</p>
                         </div>
-                        <div className="text-sm">{i === 0 ? "8/8" : "7/8"}</div>
-                        <div className="text-sm">{i === 0 ? "6/8" : "4/7"}</div>
-                        <div>
-                          <Badge variant="outline" className="text-xs">
-                            In Progress
-                          </Badge>
-                        </div>
-                        <div className="flex justify-end gap-2">
-                          <Button variant="outline" size="sm">
-                            View Votes
-                          </Button>
-                          {isAdmin && (
-                            <Button variant="ghost" size="sm">
-                              Finalize
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    ))}
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -369,9 +416,6 @@ function TeamCard({ team, isAdmin, teams }: { team: Team; isAdmin: boolean; team
             <Progress value={(memberCount / maxMembers) * 100} />
           </div>
           <div className="pt-2 flex justify-end gap-2">
-            <Button variant="outline" size="sm">
-              View Team
-            </Button>
             {isAdmin && (
               <Button variant="ghost" size="sm">
                 Edit

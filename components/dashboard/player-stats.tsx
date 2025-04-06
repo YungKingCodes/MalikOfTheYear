@@ -108,8 +108,8 @@ export function PlayerStats() {
             </div>
             {player.titles && player.titles.length > 0 && (
               <div className="flex gap-2 mt-2">
-                {player.titles.map((title) => (
-                  <Badge key={title} variant="secondary" className="text-xs">
+                {player.titles.map((title, index) => (
+                  <Badge key={`${player._id}-title-${index}`} variant="secondary" className="text-xs">
                     {title}
                   </Badge>
                 ))}

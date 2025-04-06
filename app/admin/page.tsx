@@ -98,6 +98,12 @@ export default async function AdminDashboardPage() {
                     Manage Teams
                   </Link>
                 </Button>
+                <Button asChild variant="outline" size="sm" className="justify-start">
+                  <Link href="/admin/player-scores">
+                    <Activity className="h-4 w-4 mr-2" />
+                    Player Scores
+                  </Link>
+                </Button>
               </div>
             </div>
           </CardContent>

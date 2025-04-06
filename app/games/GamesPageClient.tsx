@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useState, useTransition, useMemo } from "react"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { Plus, Search } from "lucide-react"
@@ -22,6 +22,7 @@ import {
 } from "@/app/actions/games"
 import { cn } from "@/lib/utils"
 import { Empty } from "@/components/empty"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 interface TeamParticipant {
   id: string
@@ -47,8 +48,8 @@ interface Game {
   backupPlan?: string | null
   difficulty?: string
   winCondition?: string
-  materialsNeeded?: string
-  cost?: number
+  materialsNeeded?: string | null
+  cost?: number | null
   participants: TeamParticipant[]
   competition?: { 
     id: string
@@ -77,6 +78,7 @@ interface SuggestedGame {
   votes: number
   userVotes?: UserVote[]
   hasVoted?: boolean
+  createdAt?: string | Date
   suggestedBy: { 
     id: string
     name: string 
@@ -105,12 +107,16 @@ export function GamesPageClient({
   const [searchQuery, setSearchQuery] = useState("")
   const [activeTab, setActiveTab] = useState("all")
   
+  // New state for suggested games filtering
+  const [suggestedGamesSortOption, setSuggestedGamesSortOption] = useState<string>("votes-desc")
+  const [suggestedGamesSearchQuery, setSuggestedGamesSearchQuery] = useState("")
+  
   // Modals state
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null)
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false)
   const [isSuggestModalOpen, setIsSuggestModalOpen] = useState(false)
 
-  // Game filtering logic
+  // Regular games filtering logic
   const filteredGames = games.filter(game => {
     const matchesSearch = game.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          game.description.toLowerCase().includes(searchQuery.toLowerCase())
@@ -121,6 +127,34 @@ export function GamesPageClient({
     if (activeTab === "completed") return matchesSearch && game.status === "completed"
     return matchesSearch
   })
+
+  // Suggested games filtering and sorting logic
+  const filteredSuggestedGames = useMemo(() => {
+    // First filter by search query if one exists
+    const filtered = suggestedGamesSearchQuery
+      ? suggestedGames.filter(game => 
+          game.name.toLowerCase().includes(suggestedGamesSearchQuery.toLowerCase()) ||
+          game.description.toLowerCase().includes(suggestedGamesSearchQuery.toLowerCase()) ||
+          game.suggestedBy.name.toLowerCase().includes(suggestedGamesSearchQuery.toLowerCase())
+        )
+      : [...suggestedGames];
+    
+    // Then sort based on selected sort option
+    switch (suggestedGamesSortOption) {
+      case "votes-desc":
+        return filtered.sort((a, b) => b.votes - a.votes);
+      case "votes-asc":
+        return filtered.sort((a, b) => a.votes - b.votes);
+      case "name-asc":
+        return filtered.sort((a, b) => a.name.localeCompare(b.name));
+      case "name-desc":
+        return filtered.sort((a, b) => b.name.localeCompare(a.name));
+      case "newest":
+        return filtered.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+      default:
+        return filtered.sort((a, b) => b.votes - a.votes); // Default to votes descending
+    }
+  }, [suggestedGames, suggestedGamesSortOption, suggestedGamesSearchQuery]);
 
   // Actions
   const handleViewGame = (gameId: string) => {
@@ -251,11 +285,12 @@ export function GamesPageClient({
             winCondition: formData.winCondition || "Score",
             materialsNeeded: formData.materialsNeeded || "",
             cost: formData.cost || 0,
+            createdAt: new Date().toISOString(),
             suggestedBy: { 
               id: session?.user?.id || '',
               name: session?.user?.name || 'Anonymous' 
             }
-          }])
+          } as SuggestedGame])
         }
         
         setIsSuggestModalOpen(false)
@@ -282,51 +317,49 @@ export function GamesPageClient({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between gap-4">
-        <div className="relative w-full sm:max-w-sm">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search games..."
-            className="pl-8"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
-        
-        <div className="flex gap-2">
-          {userRole === "admin" && (
-            <>
-              <Button onClick={() => router.push("/admin/games")}>
-                <Plus className="mr-2 h-4 w-4" />
-                Add Game
-              </Button>
-              <Button onClick={() => setIsSuggestModalOpen(true)} variant="outline">
-                <Plus className="mr-2 h-4 w-4" />
-                Suggest Game
-              </Button>
-            </>
-          )}
-          {userRole !== "admin" && (
+      <div className="flex justify-end">
+        {userRole === "admin" && (
+          <>
+            <Button onClick={() => router.push("/admin/games")} className="mr-2">
+              <Plus className="mr-2 h-4 w-4" />
+              Add Game
+            </Button>
             <Button onClick={() => setIsSuggestModalOpen(true)} variant="outline">
               <Plus className="mr-2 h-4 w-4" />
               Suggest Game
             </Button>
-          )}
-        </div>
+          </>
+        )}
+        {userRole !== "admin" && (
+          <Button onClick={() => setIsSuggestModalOpen(true)} variant="outline">
+            <Plus className="mr-2 h-4 w-4" />
+            Suggest Game
+          </Button>
+        )}
       </div>
 
       <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="w-full sm:w-auto">
-          <TabsTrigger value="all">All Games</TabsTrigger>
-          <TabsTrigger value="available">Available</TabsTrigger>
-          <TabsTrigger value="scheduled">Scheduled</TabsTrigger>
-          <TabsTrigger value="completed">Completed</TabsTrigger>
-          <TabsTrigger value="suggested">Suggested</TabsTrigger>
+        <TabsList className="flex w-full overflow-x-auto whitespace-nowrap scrollbar-none">
+          <TabsTrigger value="all" className="flex-shrink-0">All Games</TabsTrigger>
+          <TabsTrigger value="available" className="flex-shrink-0">Available</TabsTrigger>
+          <TabsTrigger value="scheduled" className="flex-shrink-0">Scheduled</TabsTrigger>
+          <TabsTrigger value="completed" className="flex-shrink-0">Completed</TabsTrigger>
+          <TabsTrigger value="suggested" className="flex-shrink-0">Suggested</TabsTrigger>
         </TabsList>
 
         {/* All games, Available, Scheduled, Completed tabs */}
         {['all', 'available', 'scheduled', 'completed'].map(tab => (
           <TabsContent key={tab} value={tab} className="mt-6">
+            <div className="relative w-full mb-4">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search games..."
+                className="pl-8 w-full sm:max-w-sm"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+            
             {filteredGames.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {filteredGames.map(game => {
@@ -366,14 +399,44 @@ export function GamesPageClient({
                 description={`${searchQuery ? "Try a different search term or " : ""}Check back later for more games.`}
               />
             )}
-        </TabsContent>
+          </TabsContent>
         ))}
 
         {/* Suggested games tab */}
         <TabsContent value="suggested" className="mt-6">
-          {suggestedGames.length > 0 ? (
+          <div className="flex flex-col sm:flex-row justify-between gap-3 mb-4">
+            <div className="relative w-full">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search suggested games..."
+                className="pl-8"
+                value={suggestedGamesSearchQuery}
+                onChange={(e) => setSuggestedGamesSearchQuery(e.target.value)}
+              />
+            </div>
+            
+            <div className="flex-shrink-0 w-full sm:w-auto mt-2 sm:mt-0">
+              <Select 
+                value={suggestedGamesSortOption} 
+                onValueChange={setSuggestedGamesSortOption}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Sort by" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="votes-desc">Most Votes</SelectItem>
+                  <SelectItem value="votes-asc">Least Votes</SelectItem>
+                  <SelectItem value="name-asc">Name (A-Z)</SelectItem>
+                  <SelectItem value="name-desc">Name (Z-A)</SelectItem>
+                  <SelectItem value="newest">Newest First</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          
+          {filteredSuggestedGames.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {suggestedGames.map(game => (
+              {filteredSuggestedGames.map(game => (
                 <div key={game.id} className="bg-card rounded-lg border p-4 shadow-sm flex flex-col">
                   <div className="space-y-1.5">
                     <h3 className="font-semibold">{game.name}</h3>
@@ -392,7 +455,7 @@ export function GamesPageClient({
                       )}>
                         {game.votes} vote{game.votes !== 1 ? "s" : ""}
                       </span>
-                              </div>
+                    </div>
 
                     <div className="flex gap-2">
                       {!game.hasVoted && (
@@ -413,13 +476,13 @@ export function GamesPageClient({
                           disabled={isPending}
                         >
                           Approve
-                              </Button>
-                            )}
-                        </div>
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}
-              </div>
+            </div>
           ) : (
             <Empty
               icon={<Plus className="h-12 w-12 text-muted-foreground" />}
@@ -445,8 +508,8 @@ export function GamesPageClient({
 
       {/* Suggest Game Modal */}
       <Dialog open={isSuggestModalOpen} onOpenChange={setIsSuggestModalOpen}>
-        <DialogContent className="sm:max-w-[600px]">
-          <DialogHeader>
+        <DialogContent className="sm:max-w-[600px] p-4 sm:p-6">
+          <DialogHeader className="sticky top-0 z-10 bg-background pt-0 pb-4">
             <DialogTitle>Suggest a Game</DialogTitle>
             <DialogDescription>
               Suggest a game for the upcoming event. Other participants can vote on your suggestion.

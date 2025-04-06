@@ -9,13 +9,11 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Search, Plus, Filter } from "lucide-react"
 import { useSession } from "next-auth/react"
-import { getUsers, getUnassignedPlayers, getTeamCaptains, getTitledPlayers, getTeams } from "@/lib/data"
+import { getUsers, getUnassignedPlayers, getTeamCaptains, getTitledPlayers } from "@/lib/data"
 import { PlayerDetailsModal } from "@/components/modals/player-details-modal"
 import { canViewPlayerScores } from "@/lib/auth-utils"
 import { AuthLoadingOverlay } from "@/components/ui/auth-loading-overlay"
 import { PlayersSkeleton } from "@/components/loading-skeletons/players-skeleton"
-import { Checkbox } from "@/components/ui/checkbox"
-import { PlayerData } from "@/types/player"
 
 // Function to render loading state
 function LoadingState() {
@@ -23,74 +21,34 @@ function LoadingState() {
 }
 
 export default function PlayersPage() {
-  const [players, setPlayers] = useState<PlayerData[]>([])
-  const [unassignedPlayers, setUnassignedPlayers] = useState<PlayerData[]>([])
-  const [captains, setCaptains] = useState<PlayerData[]>([])
-  const [titledPlayers, setTitledPlayers] = useState<PlayerData[]>([])
+  const [players, setPlayers] = useState<any[]>([])
+  const [unassignedPlayers, setUnassignedPlayers] = useState<any[]>([])
+  const [captains, setCaptains] = useState<any[]>([])
+  const [titledPlayers, setTitledPlayers] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const { data: session } = useSession()
   const user = session?.user
 
-  // For search and filtering
-  const [searchQuery, setSearchQuery] = useState("")
-  const [showFilterMenu, setShowFilterMenu] = useState(false)
-  const [filters, setFilters] = useState({
-    role: "",
-    team: "",
-    hasTitles: false
-  })
-  
-  // Original data for filtering
-  const [allPlayersData, setAllPlayersData] = useState<PlayerData[]>([])
-  
-  // Team data for filters
-  const [teams, setTeams] = useState<any[]>([])
-  
   // For player details modal
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null)
   const [playerDetailsOpen, setPlayerDetailsOpen] = useState(false)
-
-  // Load teams for filters
-  useEffect(() => {
-    async function loadTeams() {
-      try {
-        const teamsData = await getTeams()
-        setTeams(teamsData)
-      } catch (err) {
-        console.error("Failed to load teams data:", err)
-      }
-    }
-    
-    loadTeams()
-  }, [])
 
   useEffect(() => {
     async function loadData() {
       try {
         setLoading(true)
-        
-        // Get players with the current filters
-        const filterOptions = {
-          search: searchQuery,
-          role: filters.role,
-          team: filters.team,
-          hasTitles: filters.hasTitles
-        }
-        
-        const filteredPlayers = await getUsers(filterOptions)
-        
-        // Calculate derived data from filtered players
-        const unassigned = filteredPlayers.filter((p: PlayerData) => !p.teamId)
-        const captainsList = filteredPlayers.filter((p: PlayerData) => p.role === "captain")
-        const titled = filteredPlayers.filter((p: PlayerData) => p.titles && p.titles.length > 0)
-        
-        setPlayers(filteredPlayers)
+        const [allPlayers, unassigned, captainsList, titled] = await Promise.all([
+          getUsers(),
+          getUnassignedPlayers(),
+          getTeamCaptains(),
+          getTitledPlayers(),
+        ])
+
+        setPlayers(allPlayers)
         setUnassignedPlayers(unassigned)
         setCaptains(captainsList)
         setTitledPlayers(titled)
-        setAllPlayersData(filteredPlayers) // Keep this for reference
-        
         setError(null)
       } catch (err) {
         console.error("Failed to load players data:", err)
@@ -100,13 +58,8 @@ export default function PlayersPage() {
       }
     }
 
-    // Debounce the loading to prevent too many requests
-    const handler = setTimeout(() => {
-      loadData()
-    }, 300)
-
-    return () => clearTimeout(handler)
-  }, [searchQuery, filters])
+    loadData()
+  }, [])
 
   const handleViewPlayer = (playerId: string) => {
     // Make sure playerId exists before using it
@@ -116,46 +69,10 @@ export default function PlayersPage() {
     }
   }
 
-  // Handle search input change
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchQuery(e.target.value)
-  }
-  
-  // Toggle filter menu
-  const toggleFilterMenu = () => {
-    setShowFilterMenu(!showFilterMenu)
-  }
-  
-  // Apply a filter
-  const applyFilter = (filterType: string, value: string | boolean) => {
-    setFilters({
-      ...filters,
-      [filterType]: value
-    })
-  }
-  
-  // Clear all filters
-  const clearFilters = () => {
-    setFilters({
-      role: "",
-      team: "",
-      hasTitles: false
-    })
-    setSearchQuery("")
-  }
-
   // Check if user can view player scores
   const canUserViewPlayerScores = (teamId?: string) => {
     return canViewPlayerScores(session)
   }
-
-  // Function to get team name by ID
-  const getTeamNameById = (teamId: string) => {
-    if (!teamId) return "Unassigned";
-    
-    const team = teams.find(team => team.id === teamId);
-    return team ? team.name : teamId;
-  };
 
   if (loading) {
     return <LoadingState />
@@ -177,104 +94,12 @@ export default function PlayersPage() {
       <div className="flex flex-col gap-4 sm:flex-row">
         <div className="relative flex-1">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input 
-            type="search" 
-            placeholder="Search players..." 
-            className="w-full pl-8" 
-            value={searchQuery}
-            onChange={handleSearchChange}
-          />
+          <Input type="search" placeholder="Search players..." className="w-full pl-8" />
         </div>
-        <div className="relative">
-          <Button 
-            variant="outline" 
-            className="sm:w-auto"
-            onClick={toggleFilterMenu}
-          >
-            <Filter className="h-4 w-4 mr-2" />
-            Filter {Object.values(filters).some(v => v) && "(Active)"}
-          </Button>
-          
-          {showFilterMenu && (
-            <Card className="absolute right-0 top-full mt-2 w-64 z-10">
-              <CardContent className="p-4 space-y-4">
-                <h3 className="font-medium text-sm">Filter Players</h3>
-                
-                <div className="space-y-2">
-                  <p className="text-sm text-muted-foreground">Role</p>
-                  <div className="flex flex-wrap gap-2">
-                    <Badge 
-                      variant={filters.role === "player" ? "default" : "outline"} 
-                      className="cursor-pointer"
-                      onClick={() => applyFilter("role", filters.role === "player" ? "" : "player")}
-                    >
-                      Player
-                    </Badge>
-                    <Badge 
-                      variant={filters.role === "captain" ? "default" : "outline"} 
-                      className="cursor-pointer"
-                      onClick={() => applyFilter("role", filters.role === "captain" ? "" : "captain")}
-                    >
-                      Captain
-                    </Badge>
-                    <Badge 
-                      variant={filters.role === "admin" ? "default" : "outline"} 
-                      className="cursor-pointer"
-                      onClick={() => applyFilter("role", filters.role === "admin" ? "" : "admin")}
-                    >
-                      Admin
-                    </Badge>
-                  </div>
-                </div>
-                
-                <div className="space-y-2">
-                  <p className="text-sm text-muted-foreground">Team</p>
-                  <div className="flex flex-wrap gap-2">
-                    {teams.length > 0 ? (
-                      teams.map(team => (
-                        <Badge 
-                          key={team.id}
-                          variant={filters.team === team.id ? "default" : "outline"} 
-                          className="cursor-pointer"
-                          onClick={() => applyFilter("team", filters.team === team.id ? "" : team.id)}
-                        >
-                          {team.name}
-                        </Badge>
-                      ))
-                    ) : (
-                      <div className="text-sm text-muted-foreground">Loading teams...</div>
-                    )}
-                  </div>
-                </div>
-                
-                <div className="space-y-2">
-                  <div className="flex items-center space-x-2">
-                    <Checkbox 
-                      id="titles" 
-                      checked={filters.hasTitles}
-                      onCheckedChange={(checked) => applyFilter("hasTitles", !!checked)}
-                    />
-                    <label
-                      htmlFor="titles"
-                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                    >
-                      Has titles/awards
-                    </label>
-                  </div>
-                </div>
-                
-                <div className="pt-2 flex justify-between">
-                  <Button variant="outline" size="sm" onClick={clearFilters}>
-                    Clear All
-                  </Button>
-                  <Button variant="default" size="sm" onClick={toggleFilterMenu}>
-                    Apply
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </div>
+        <Button variant="outline" className="sm:w-auto">
+          <Filter className="h-4 w-4 mr-2" />
+          Filter
+        </Button>
       </div>
 
       <Tabs defaultValue="all" className="space-y-4">
@@ -336,7 +161,15 @@ export default function PlayersPage() {
                             <div className="text-xs text-muted-foreground">Team:</div>
                             <div className="text-sm">
                               {player.teamId
-                                ? getTeamNameById(player.teamId)
+                                ? player.teamId === "team1"
+                                  ? "Mountain Goats"
+                                  : player.teamId === "team2"
+                                    ? "Royal Rams"
+                                    : player.teamId === "team3"
+                                      ? "Athletic Antelopes"
+                                      : player.teamId === "team4"
+                                        ? "Speed Sheep"
+                                        : player.teamId
                                 : "Unassigned"}
                             </div>
 
@@ -366,7 +199,15 @@ export default function PlayersPage() {
 
                           <div className="hidden md:block">
                             {player.teamId
-                              ? getTeamNameById(player.teamId)
+                              ? player.teamId === "team1"
+                                ? "Mountain Goats"
+                                : player.teamId === "team2"
+                                  ? "Royal Rams"
+                                  : player.teamId === "team3"
+                                    ? "Athletic Antelopes"
+                                    : player.teamId === "team4"
+                                      ? "Speed Sheep"
+                                      : player.teamId
                               : "Unassigned"}
                           </div>
                           <div className="hidden md:block text-sm">
@@ -551,7 +392,15 @@ export default function PlayersPage() {
                           <div className="grid grid-cols-2 gap-2 md:hidden">
                             <div className="text-xs text-muted-foreground">Team:</div>
                             <div className="text-sm">
-                              {getTeamNameById(captain.teamId)}
+                              {captain.teamId === "team1"
+                                ? "Mountain Goats"
+                                : captain.teamId === "team2"
+                                  ? "Royal Rams"
+                                  : captain.teamId === "team3"
+                                    ? "Athletic Antelopes"
+                                    : captain.teamId === "team4"
+                                      ? "Speed Sheep"
+                                      : captain.teamId}
                             </div>
 
                             <div className="text-xs text-muted-foreground">Proficiency:</div>
@@ -572,7 +421,15 @@ export default function PlayersPage() {
                           </div>
 
                           <div className="hidden md:block text-sm">
-                            {getTeamNameById(captain.teamId)}
+                            {captain.teamId === "team1"
+                              ? "Mountain Goats"
+                              : captain.teamId === "team2"
+                                ? "Royal Rams"
+                                : captain.teamId === "team3"
+                                  ? "Athletic Antelopes"
+                                  : captain.teamId === "team4"
+                                    ? "Speed Sheep"
+                                    : captain.teamId}
                           </div>
                           <div className="hidden md:block text-sm">
                             {canUserViewPlayerScores(captain.teamId) ? captain.proficiencyScore : "Hidden"}
@@ -647,7 +504,15 @@ export default function PlayersPage() {
                           <div className="grid grid-cols-2 gap-2 md:hidden">
                             <div className="text-xs text-muted-foreground">Team:</div>
                             <div className="text-sm">
-                              {player.teamId ? getTeamNameById(player.teamId) : "Unassigned"}
+                              {player.teamId === "team1"
+                                ? "Mountain Goats"
+                                : player.teamId === "team2"
+                                  ? "Royal Rams"
+                                  : player.teamId === "team3"
+                                    ? "Athletic Antelopes"
+                                    : player.teamId === "team4"
+                                      ? "Speed Sheep"
+                                      : "Unassigned"}
                             </div>
 
                             <div className="text-xs text-muted-foreground">Titles:</div>
@@ -668,7 +533,15 @@ export default function PlayersPage() {
                           </div>
 
                           <div className="hidden md:block text-sm">
-                            {player.teamId ? getTeamNameById(player.teamId) : "Unassigned"}
+                            {player.teamId === "team1"
+                              ? "Mountain Goats"
+                              : player.teamId === "team2"
+                                ? "Royal Rams"
+                                : player.teamId === "team3"
+                                  ? "Athletic Antelopes"
+                                  : player.teamId === "team4"
+                                    ? "Speed Sheep"
+                                    : "Unassigned"}
                           </div>
                           <div className="hidden md:block">
                             {player.titles.map((title: string, index: number) => (

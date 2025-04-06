@@ -93,7 +93,7 @@ export function GameDetailsModal({ gameId, open, onOpenChange }: GameDetailsModa
           </div>
         ) : game ? (
           <>
-            <DialogHeader>
+            <DialogHeader className="sticky top-0 z-10 bg-background pt-0 pb-4">
               <DialogTitle className="text-2xl">{game.name}</DialogTitle>
               <DialogDescription>
                 <div className="flex items-center gap-2 mt-1">

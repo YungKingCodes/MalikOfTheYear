@@ -57,7 +57,11 @@ export async function GET(req: NextRequest) {
       
       // If only looking for unassigned users (no team yet)
       if (unassignedOnly) {
-        queryConditions.OR = [
+        // Save the original name/email search conditions
+        const searchConditions = queryConditions.OR;
+        
+        // Create a new filter for unassigned users
+        const teamConditions = [
           { teamId: null }, // User has no team
           {
             team: {
@@ -66,7 +70,16 @@ export async function GET(req: NextRequest) {
               },
             }, // User's team is not in this competition
           },
-        ]
+        ];
+        
+        // Use AND to combine the search and team conditions
+        queryConditions.AND = [
+          { OR: searchConditions },  // Original name/email search
+          { OR: teamConditions }     // Team filter conditions
+        ];
+        
+        // Remove the original OR since we've moved it inside AND
+        delete queryConditions.OR;
       }
     }
 

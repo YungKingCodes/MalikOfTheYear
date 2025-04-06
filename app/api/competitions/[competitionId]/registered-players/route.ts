@@ -1,133 +1,210 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { auth } from '@/auth'
+import { Prisma } from '@prisma/client'
 
-export async function GET(request: Request, { params }: { params: { competitionId: string } }) {
+export async function GET(
+  req: NextRequest,
+  { params }: { params: { competitionId: string } }
+) {
+  const session = await auth()
+  
+  // Check if the user is authenticated
+  if (!session?.user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+  
   try {
-    // Authenticate user
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      )
-    }
-
-    const competitionId = params.competitionId
+    const { competitionId } = params
+    const { searchParams } = new URL(req.url)
+    const unassignedOnly = searchParams.get('unassignedOnly') === 'true'
+    const query = searchParams.get('q') || ''
     
-    if (!competitionId) {
-      return NextResponse.json(
-        { error: "Competition ID is required" },
-        { status: 400 }
-      )
-    }
-
-    // First, get all users registered for this competition
-    const registrations = await db.userCompetition.findMany({
-      where: {
-        competitionId: competitionId,
-        status: "approved"
-      },
-      select: {
-        userId: true
-      }
+    console.log(`Request for competition ID: ${competitionId}`)
+    console.log(`Query params: unassignedOnly=${unassignedOnly}, q=${query}`)
+    
+    // First, check all possible statuses for user competition records
+    const statusCounts = await db.userCompetition.groupBy({
+      by: ['status'],
+      where: { competitionId },
+      _count: true
     })
-
-    const userIds = registrations.map(reg => reg.userId)
     
-    // Then, get detailed user information
+    console.log('User competition status counts:', JSON.stringify(statusCounts))
+    
+    // Let's directly query to see if any UserCompetition records exist
+    const userCompCount = await db.userCompetition.count({
+      where: { competitionId }
+    })
+    
+    console.log(`Total UserCompetition records found for competition ${competitionId}: ${userCompCount}`)
+    
+    // Get registrations with any status
+    const registrations = await db.userCompetition.findMany({
+      where: { competitionId },
+      select: { userId: true, status: true }
+    })
+    
+    console.log(`Found ${registrations.length} raw registrations`)
+    
+    // Output the first few registrations for debugging
+    if (registrations.length > 0) {
+      console.log('First registration:', JSON.stringify(registrations[0]))
+    }
+    
+    // Get all user IDs
+    const registeredUserIds = registrations.map(reg => reg.userId)
+    console.log(`Extracted ${registeredUserIds.length} user IDs`)
+    
+    // If no registered users, return empty array early
+    if (registeredUserIds.length === 0) {
+      return NextResponse.json({ 
+        players: [],
+        debug: {
+          message: "No registered users found for this competition",
+          competitionId,
+          userCompCount
+        }
+      })
+    }
+    
+    // Get all users that match the IDs, regardless of other filters first
+    const userCount = await db.user.count({
+      where: { id: { in: registeredUserIds } }
+    })
+    
+    console.log(`Found ${userCount} matching users out of ${registeredUserIds.length} user IDs`)
+    
+    // Simple query for all registered users if no filters
+    let where: any = {
+      id: { in: registeredUserIds }
+    }
+    
+    // Build search conditions if query provided
+    const searchCondition = query ? {
+      OR: [
+        { name: { contains: query, mode: Prisma.QueryMode.insensitive } },
+        { email: { contains: query, mode: Prisma.QueryMode.insensitive } }
+      ]
+    } : null
+    
+    // When unassignedOnly is false, we want to show ALL registered users
+    // We only need to add the teamCondition filter when unassignedOnly is true
+    const teamCondition = unassignedOnly ? {
+      OR: [
+        { teamId: null },
+        { 
+          team: { 
+            is: null 
+          } 
+        },
+        {
+          team: {
+            competitionId: {
+              not: competitionId
+            }
+          }
+        }
+      ]
+    } : null
+    
+    console.log(`Team filter condition: ${teamCondition ? 'applied' : 'not applied'}`);
+    
+    // Combine conditions with AND if needed
+    if (searchCondition && teamCondition) {
+      // Both search and team filter
+      where = {
+        AND: [
+          { id: { in: registeredUserIds } },
+          searchCondition,
+          teamCondition
+        ]
+      }
+    } else if (searchCondition) {
+      // Only search
+      where = {
+        AND: [
+          { id: { in: registeredUserIds } },
+          searchCondition
+        ]
+      }
+    } else if (teamCondition) {
+      // Only team filter
+      where = {
+        AND: [
+          { id: { in: registeredUserIds } },
+          teamCondition
+        ]
+      }
+    } else {
+      // No filters - just registered users
+      where = { id: { in: registeredUserIds } }
+    }
+    
+    console.log('Final query where clause:', JSON.stringify(where))
+    
+    // Get the users with their team info
     const players = await db.user.findMany({
-      where: {
-        id: { in: userIds }
-      },
+      where,
       select: {
         id: true,
         name: true,
+        email: true,
         image: true,
-        proficiencyScore: true,
+        role: true,
         position: true,
-        teamId: true
+        proficiencyScore: true,
+        teamId: true,
+        team: {
+          select: {
+            id: true,
+            name: true,
+            competitionId: true,
+          },
+        },
       },
       orderBy: {
-        name: 'asc'
+        name: 'asc',
+      },
+    })
+    
+    console.log(`Returning ${players.length} players`)
+    
+    // For debugging: check the first few users to see their team assignments
+    if (players.length > 0) {
+      const firstPlayers = players.slice(0, Math.min(3, players.length));
+      console.log('Sample players:', firstPlayers.map(p => ({
+        id: p.id,
+        name: p.name,
+        hasTeam: p.teamId !== null,
+        teamId: p.teamId,
+        teamName: p.team?.name
+      })));
+    }
+    
+    // Count users with/without teams for debugging
+    const assignedUsersCount = players.filter(p => p.teamId !== null).length;
+    const unassignedUsersCount = players.length - assignedUsersCount;
+    
+    return NextResponse.json({
+      players,
+      debug: {
+        registeredCount: registeredUserIds.length,
+        returnedCount: players.length,
+        userMatchCount: userCount,
+        userCompCount,
+        assignedCount: assignedUsersCount,
+        unassignedCount: unassignedUsersCount,
+        filters: {
+          searchQuery: query,
+          unassignedOnly
+        }
       }
     })
-
-    // For each player, calculate their average score from self-assessment and peer ratings
-    const playersWithScores = await Promise.all(
-      players.map(async (player) => {
-        // Get self-assessment for the player
-        const selfScores = await db.playerSelfScore.findMany({
-          where: {
-            userId: player.id,
-            competitionId: competitionId
-          }
-        })
-        
-        // Get peer ratings for the player
-        const peerRatings = await db.playerRating.findMany({
-          where: {
-            ratedId: player.id,
-            competitionId: competitionId
-          }
-        })
-        
-        // Calculate average score from self-assessment
-        let selfScoreAvg = 0
-        if (selfScores.length > 0) {
-          const selfScoreSum = selfScores.reduce((sum, score) => {
-            const scoreValues = Object.values(score.scores as Record<string, number>)
-            return sum + scoreValues.reduce((s, v) => s + v, 0) / scoreValues.length
-          }, 0)
-          selfScoreAvg = selfScoreSum / selfScores.length
-        }
-        
-        // Calculate average score from peer ratings
-        let peerScoreAvg = 0
-        if (peerRatings.length > 0) {
-          const peerScoreSum = peerRatings.reduce((sum, rating) => {
-            const scoreValues = Object.values(rating.scores as Record<string, number>)
-            return sum + scoreValues.reduce((s, v) => s + v, 0) / scoreValues.length
-          }, 0)
-          peerScoreAvg = peerScoreSum / peerRatings.length
-        }
-        
-        // Overall score is average of self and peer scores, defaulting to existing proficiency score if no ratings
-        let overallScore = player.proficiencyScore || 0
-        
-        // If we have ratings, update the overall score
-        if (selfScores.length > 0 || peerRatings.length > 0) {
-          // Weight self-assessment at 30% and peer ratings at 70%
-          if (selfScores.length > 0 && peerRatings.length > 0) {
-            overallScore = Math.round(selfScoreAvg * 0.3 + peerScoreAvg * 0.7)
-          }
-          // Only self-assessment available
-          else if (selfScores.length > 0) {
-            overallScore = Math.round(selfScoreAvg)
-          }
-          // Only peer ratings available
-          else if (peerRatings.length > 0) {
-            overallScore = Math.round(peerScoreAvg)
-          }
-          
-          // Convert from 1-5 scale to 0-100 scale
-          if (selfScores.length > 0 || peerRatings.length > 0) {
-            overallScore = Math.round((overallScore / 5) * 100)
-          }
-        }
-        
-        return {
-          ...player,
-          proficiencyScore: overallScore
-        }
-      })
-    )
-
-    return NextResponse.json({ players: playersWithScores })
   } catch (error) {
-    console.error("Error fetching registered players:", error)
+    console.error('Error fetching registered players:', error)
     return NextResponse.json(
-      { error: "Failed to fetch registered players" },
+      { error: 'Failed to fetch registered players', message: error instanceof Error ? error.message : String(error) },
       { status: 500 }
     )
   }

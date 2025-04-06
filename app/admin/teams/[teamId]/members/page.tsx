@@ -32,6 +32,8 @@ import { getTeamWithMembers, addTeamMember, removeTeamMember, updateTeamCaptain 
 import { Label } from "@/components/ui/label"
 import { ChevronLeft, Search, UserMinus, UserPlus, Crown, Shield } from "lucide-react"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { getCompetitions } from "@/app/actions/competitions"
+import { Checkbox } from "@/components/ui/checkbox"
 
 export default function TeamMembersPage({ params }: { params: { teamId: string } }) {
   const { teamId } = params
@@ -47,16 +49,32 @@ export default function TeamMembersPage({ params }: { params: { teamId: string }
   const [searchLoading, setSearchLoading] = useState(false)
   const [processingMemberId, setProcessingMemberId] = useState<string | null>(null)
   const [searchType, setSearchType] = useState<"all" | "registered">("registered")
+  const [playerScores, setPlayerScores] = useState<Record<string, any>>({})
+  const [activeCompetition, setActiveCompetition] = useState<any>(null)
+  const [showOnlyUnassigned, setShowOnlyUnassigned] = useState(true)
+  const [debugInfo, setDebugInfo] = useState<any>(null)
   
-  // Load team data
+  // Load team data and competitions
   useEffect(() => {
-    async function loadTeam() {
+    async function loadData() {
       try {
         setLoading(true)
+        
+        // Load team data
         const teamData = await getTeamWithMembers(teamId)
         setTeam(teamData)
+        
+        // Get competitions to identify active one
+        const competitionsData = await getCompetitions()
+        const active = competitionsData.find(comp => comp.status === "active") || competitionsData[0]
+        setActiveCompetition(active)
+        
+        // Load player scores if team and active competition are available
+        if (teamData && active) {
+          await loadPlayerScores(teamData.members, active.id)
+        }
       } catch (error) {
-        console.error("Error loading team:", error)
+        console.error("Error loading data:", error)
         setError("Failed to load team data. Please try again.")
         toast({
           title: "Error loading team",
@@ -68,26 +86,25 @@ export default function TeamMembersPage({ params }: { params: { teamId: string }
       }
     }
     
-    loadTeam()
+    loadData()
   }, [teamId, toast])
   
-  const handleSearch = async () => {
-    if (!searchQuery.trim()) return
+  // Load registered players when the dialog opens
+  useEffect(() => {
+    if (addMemberDialogOpen && team?.competition?.id) {
+      // Auto-load all registered players when the dialog opens
+      setSearchType("registered");
+      setSearchQuery("");
+      handleSearch();
+    }
+  }, [addMemberDialogOpen, team?.competition?.id]);
+  
+  // Function to load player scores for team members
+  const loadPlayerScores = async (members: any[], competitionId: string) => {
+    if (!members?.length || !competitionId) return
     
     try {
-      setSearchLoading(true)
-      
-      // Check if we have the team's competition ID
-      const competitionId = team.competition?.id
-      
-      // Create the search endpoint URL with appropriate query parameters
-      let searchUrl = `/api/users/search?q=${encodeURIComponent(searchQuery)}`
-      
-      if (searchType === "registered" && competitionId) {
-        searchUrl += `&competitionId=${competitionId}&unassignedOnly=true`
-      }
-      
-      const response = await fetch(searchUrl, {
+      const response = await fetch(`/api/competitions/${competitionId}/registered-players`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -95,11 +112,89 @@ export default function TeamMembersPage({ params }: { params: { teamId: string }
       })
       
       if (!response.ok) {
-        throw new Error('Failed to search users')
+        throw new Error('Failed to fetch player scores')
       }
       
       const data = await response.json()
-      setSearchResults(data.users || [])
+      
+      // Create a map of player scores by user ID
+      const scoresMap: Record<string, any> = {}
+      
+      data.players.forEach((player: any) => {
+        scoresMap[player.id] = {
+          proficiencyScore: player.proficiencyScore,
+          position: player.position
+        }
+      })
+      
+      setPlayerScores(scoresMap)
+    } catch (error) {
+      console.error('Error fetching player scores:', error)
+      toast({
+        title: "Error",
+        description: "Failed to load player scores. Some data may be incomplete.",
+        variant: "destructive"
+      })
+    }
+  }
+  
+  const handleSearch = async () => {
+    // Only require search query for "all" mode, not for "registered" mode
+    if (searchType === "all" && !searchQuery.trim()) return
+    
+    try {
+      setSearchLoading(true)
+      setDebugInfo(null)
+      
+      // Check if we have the team's competition ID
+      const competitionId = team.competition?.id
+      
+      if (searchType === "registered" && competitionId) {
+        // Use the registered-players API endpoint
+        let url = `/api/competitions/${competitionId}/registered-players`
+        
+        // Add search query if provided
+        if (searchQuery.trim()) {
+          url += `?q=${encodeURIComponent(searchQuery)}`
+        } else {
+          url += `?`
+        }
+        
+        // Add unassignedOnly parameter if checkbox is checked
+        if (showOnlyUnassigned) {
+          url += `&unassignedOnly=true`
+        }
+        
+        console.log("Fetching registered players with URL:", url);
+        
+        const response = await fetch(url)
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch registered players')
+        }
+        
+        const data = await response.json()
+        console.log("API response:", data);
+        setSearchResults(data.players || [])
+        setDebugInfo(data.debug || null)
+      } else {
+        // Use the existing users/search API for the "all users" option
+        const searchUrl = `/api/users/search?q=${encodeURIComponent(searchQuery)}`
+        
+        const response = await fetch(searchUrl, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        })
+        
+        if (!response.ok) {
+          throw new Error('Failed to search users')
+        }
+        
+        const data = await response.json()
+        setSearchResults(data.users || [])
+      }
     } catch (error) {
       console.error('Error searching users:', error)
       toast({
@@ -319,9 +414,40 @@ export default function TeamMembersPage({ params }: { params: { teamId: string }
               </div>
               
               {searchType === "registered" && (
-                <p className="text-sm text-muted-foreground">
-                  Showing users registered for {team.competition?.name || "this competition"} who are not yet assigned to a team.
-                </p>
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="unassignedOnly" 
+                      checked={showOnlyUnassigned} 
+                      onCheckedChange={(checked) => {
+                        setShowOnlyUnassigned(checked === true);
+                        // Clear previous search results when toggling this option
+                        setSearchResults([]);
+                        // Immediately perform a new search with the updated filter
+                        setTimeout(() => handleSearch(), 0);
+                      }}
+                    />
+                    <Label htmlFor="unassignedOnly">Show only unassigned players</Label>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    {showOnlyUnassigned 
+                      ? "Showing users registered for this competition who are not yet assigned to a team." 
+                      : "Showing all users registered for this competition."}
+                  </p>
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    size="sm" 
+                    className="w-full"
+                    onClick={() => {
+                      // Search with empty query to show all registered players
+                      setSearchQuery("");
+                      handleSearch();
+                    }}
+                  >
+                    Show All Registered Players
+                  </Button>
+                </div>
               )}
             </div>
             
@@ -350,27 +476,70 @@ export default function TeamMembersPage({ params }: { params: { teamId: string }
                           <div>
                             <p className="font-medium">{user.name || "Unnamed User"}</p>
                             <p className="text-xs text-muted-foreground">{user.email}</p>
+                            {user.team && (
+                              <p className="text-xs mt-1">
+                                <Badge variant="outline" className="text-xs">
+                                  Already on {user.team.name}
+                                </Badge>
+                              </p>
+                            )}
                           </div>
                         </TableCell>
                         <TableCell className="text-right">
                           <Button 
                             variant="outline" 
                             size="sm"
-                            onClick={() => handleAddMember(user.id)}
+                            onClick={() => {
+                              if (user.team) {
+                                // Show confirmation if user is already on a team
+                                if (confirm(`This user is already on team "${user.team.name}". Do you want to move them to this team?`)) {
+                                  handleAddMember(user.id);
+                                }
+                              } else {
+                                handleAddMember(user.id);
+                              }
+                            }}
                             disabled={processingMemberId === user.id}
                           >
                             <UserPlus className="h-4 w-4 mr-1" />
-                            Add
+                            {user.team ? "Move" : "Add"}
                           </Button>
                         </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
-              ) : searchQuery ? (
-                <p className="py-4 text-center text-muted-foreground">
-                  No users found. Try a different search term.
-                </p>
+              ) : searchQuery || searchType === "registered" ? (
+                <div className="py-4 text-center">
+                  <p className="text-muted-foreground">
+                    {searchType === "registered" 
+                      ? "No registered players found that match your criteria."
+                      : "No users found. Try a different search term."}
+                  </p>
+                  
+                  {debugInfo && (
+                    <div className="mt-4 p-3 border rounded text-xs text-left bg-muted/30">
+                      <details>
+                        <summary className="cursor-pointer font-medium">Debug Information</summary>
+                        <div className="mt-2 space-y-1">
+                          <p>Registered users: {debugInfo.registeredCount || 0}</p>
+                          <p>Users matched: {debugInfo.userMatchCount || 0}</p>
+                          <p>Results returned: {debugInfo.returnedCount || 0}</p>
+                          <p>UserCompetition records: {debugInfo.userCompCount || 0}</p>
+                          {debugInfo.assignedCount !== undefined && (
+                            <>
+                              <p>Assigned users: {debugInfo.assignedCount}</p>
+                              <p>Unassigned users: {debugInfo.unassignedCount}</p>
+                            </>
+                          )}
+                          {debugInfo.message && (
+                            <p className="text-orange-600">{debugInfo.message}</p>
+                          )}
+                        </div>
+                      </details>
+                    </div>
+                  )}
+                </div>
               ) : (
                 <p className="py-4 text-center text-muted-foreground">
                   Enter a search term to find users.
@@ -387,96 +556,91 @@ export default function TeamMembersPage({ params }: { params: { teamId: string }
         </Dialog>
       </div>
       
-      <Card>
+      <Card className="mb-6">
         <CardHeader>
-          <CardTitle>{team.name} Members ({team.members.length})</CardTitle>
+          <CardTitle>Team Members</CardTitle>
           <CardDescription>
-            {team.competition?.name && `Competition: ${team.competition.name}`}
+            Members of {team?.name || "Team"} in {team?.competition?.name || "Competition"}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {team.members.length === 0 ? (
-            <div className="py-8 text-center">
-              <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-muted mb-4">
-                <UserPlus className="h-6 w-6 text-muted-foreground" />
-              </div>
-              <h3 className="text-lg font-medium">No Members</h3>
-              <p className="text-sm text-muted-foreground mt-1 mb-4">
-                This team doesn't have any members yet. Add members to the team to get started.
-              </p>
-              <Button variant="outline" onClick={() => setAddMemberDialogOpen(true)}>
-                <UserPlus className="h-4 w-4 mr-2" />
-                Add Member
-              </Button>
+          {team?.members?.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-8">
+              <Shield className="h-12 w-12 text-muted-foreground mb-4" />
+              <h3 className="text-lg font-medium">No members</h3>
+              <p className="text-muted-foreground text-sm mt-1 mb-4">This team has no members yet.</p>
             </div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>User</TableHead>
+                  <TableHead>Member</TableHead>
                   <TableHead>Role</TableHead>
-                  <TableHead>Team Role</TableHead>
+                  <TableHead>Score</TableHead>
+                  <TableHead>Position</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {team.members.map((member: any) => (
+                {team?.members?.map((member: any) => (
                   <TableRow key={member.id}>
-                    <TableCell className="flex items-center">
-                      <Avatar className="h-8 w-8 mr-2">
-                        <AvatarImage src={member.image || ""} alt={member.name || "User"} />
-                        <AvatarFallback>{getUserInitials(member.name)}</AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <p className="font-medium">{member.name || "Unnamed User"}</p>
-                        <p className="text-xs text-muted-foreground">{member.email}</p>
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <Avatar>
+                          <AvatarImage src={member.image} alt={member.name} />
+                          <AvatarFallback>{getUserInitials(member.name)}</AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <div className="font-medium">{member.name}</div>
+                          <div className="text-sm text-muted-foreground">{member.email}</div>
+                        </div>
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline" className={
-                        member.role === "admin" 
-                          ? "bg-blue-50 text-blue-700 hover:bg-blue-50" 
-                          : "bg-green-50 text-green-700 hover:bg-green-50"
-                      }>
-                        {member.role === "admin" ? (
-                          <Shield className="h-3 w-3 mr-1 inline-block" />
-                        ) : null}
-                        {member.role || "User"}
-                      </Badge>
+                      <div className="flex items-center gap-2">
+                        {team.captainId === member.id ? (
+                          <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100">
+                            <Crown className="h-3 w-3 mr-1" />
+                            Captain
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline">Member</Badge>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>
-                      {team.captain?.id === member.id ? (
-                        <Badge variant="outline" className="bg-amber-50 text-amber-700 hover:bg-amber-50">
-                          <Crown className="h-3 w-3 mr-1 inline-block" />
-                          Captain
+                      {playerScores[member.id]?.proficiencyScore ? (
+                        <Badge variant="secondary" className="font-mono">
+                          {playerScores[member.id].proficiencyScore}
                         </Badge>
                       ) : (
-                        <Badge variant="outline" className="bg-slate-50 text-slate-700 hover:bg-slate-50">
-                          Member
-                        </Badge>
+                        <span className="text-muted-foreground text-sm">Not scored</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {playerScores[member.id]?.position || member.position || (
+                        <span className="text-muted-foreground text-sm">Not set</span>
                       )}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
-                        {team.captain?.id !== member.id && (
+                        {team.captainId !== member.id && (
                           <Button 
                             variant="outline" 
-                            size="sm"
+                            size="icon"
                             onClick={() => handleSetCaptain(member.id)}
                             disabled={processingMemberId === member.id}
                           >
-                            <Crown className="h-4 w-4 mr-1" />
-                            Make Captain
+                            <Crown className="h-4 w-4" />
                           </Button>
                         )}
                         <Button 
                           variant="outline" 
-                          size="sm" 
+                          size="icon"
                           onClick={() => handleRemoveMember(member.id)}
                           disabled={processingMemberId === member.id}
                         >
-                          <UserMinus className="h-4 w-4 mr-1" />
-                          Remove
+                          <UserMinus className="h-4 w-4" />
                         </Button>
                       </div>
                     </TableCell>

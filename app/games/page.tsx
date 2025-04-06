@@ -44,6 +44,7 @@ export default async function GamesPage() {
     cost: game.cost || 0,
     votes: game.votes,
     hasVoted: !!game.hasVoted,
+    createdAt: game.createdAt || new Date().toISOString(),
     suggestedBy: {
       id: game.suggestedBy.id,
       name: game.suggestedBy.name || ""

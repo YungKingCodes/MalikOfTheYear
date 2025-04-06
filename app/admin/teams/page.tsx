@@ -31,6 +31,8 @@ import { getCompetitions } from "@/app/actions/competitions"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import Link from "next/link"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Switch } from "@/components/ui/switch"
 
 export default function TeamsAdminPage() {
   const { toast } = useToast()
@@ -43,6 +45,7 @@ export default function TeamsAdminPage() {
   const [selectedCompetitionId, setSelectedCompetitionId] = useState<string>("")
   const [newTeamCompetitionId, setNewTeamCompetitionId] = useState<string>("")
   const [isCreating, setIsCreating] = useState(false)
+  const [showPlayerScores, setShowPlayerScores] = useState(false)
 
   useEffect(() => {
     async function loadData() {
@@ -64,17 +67,7 @@ export default function TeamsAdminPage() {
         setSelectedCompetitionId(active.id)
         
         // Fetch teams for the active competition
-        const response = await fetch(`/api/teams?competitionId=${active.id}`, {
-          credentials: "include"
-        })
-        
-        if (!response.ok) {
-          console.error("Error fetching teams:", await response.text());
-          throw new Error("Failed to fetch teams");
-        }
-        
-        const data = await response.json()
-        setTeams(data)
+        await loadTeamsForCompetition(active.id, showPlayerScores)
       } catch (error) {
         console.error("Failed to load teams data:", error)
         toast({
@@ -90,12 +83,12 @@ export default function TeamsAdminPage() {
     loadData()
   }, [toast])
 
-  const loadTeamsForCompetition = async (competitionId: string) => {
+  const loadTeamsForCompetition = async (competitionId: string, includeScores: boolean = false) => {
     if (!competitionId) return
     
     try {
       setLoading(true)
-      const response = await fetch(`/api/teams?competitionId=${competitionId}`, {
+      const response = await fetch(`/api/teams?competitionId=${competitionId}&includeScores=${includeScores}`, {
         credentials: "include"
       })
       
@@ -119,7 +112,12 @@ export default function TeamsAdminPage() {
 
   const handleCompetitionChange = (competitionId: string) => {
     setSelectedCompetitionId(competitionId)
-    loadTeamsForCompetition(competitionId)
+    loadTeamsForCompetition(competitionId, showPlayerScores)
+  }
+  
+  const handleTogglePlayerScores = (checked: boolean) => {
+    setShowPlayerScores(checked)
+    loadTeamsForCompetition(selectedCompetitionId, checked)
   }
 
   const handleCreateClick = () => {
@@ -153,7 +151,7 @@ export default function TeamsAdminPage() {
       
       // Refresh the teams list if the created team belongs to the currently selected competition
       if (newTeamCompetitionId === selectedCompetitionId) {
-        await loadTeamsForCompetition(selectedCompetitionId)
+        await loadTeamsForCompetition(selectedCompetitionId, showPlayerScores)
       }
       
       setCreateDialogOpen(false)
@@ -279,23 +277,34 @@ export default function TeamsAdminPage() {
       </div>
 
       <div className="my-6">
-        <div className="mb-4">
-          <Label htmlFor="filter-competition">View teams by competition</Label>
-          <Select 
-            value={selectedCompetitionId} 
-            onValueChange={handleCompetitionChange}
-          >
-            <SelectTrigger id="filter-competition" className="w-full md:w-80">
-              <SelectValue placeholder="Select a competition" />
-            </SelectTrigger>
-            <SelectContent>
-              {competitions.map((competition) => (
-                <SelectItem key={competition.id} value={competition.id}>
-                  {competition.name} {competition.status === "active" && "(Active)"}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between mb-4">
+          <div className="w-full md:w-80">
+            <Label htmlFor="filter-competition">View teams by competition</Label>
+            <Select 
+              value={selectedCompetitionId} 
+              onValueChange={handleCompetitionChange}
+            >
+              <SelectTrigger id="filter-competition" className="w-full">
+                <SelectValue placeholder="Select a competition" />
+              </SelectTrigger>
+              <SelectContent>
+                {competitions.map((competition) => (
+                  <SelectItem key={competition.id} value={competition.id}>
+                    {competition.name} {competition.status === "active" && "(Active)"}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          
+          <div className="flex items-center space-x-2">
+            <Switch
+              id="show-scores"
+              checked={showPlayerScores}
+              onCheckedChange={handleTogglePlayerScores}
+            />
+            <Label htmlFor="show-scores" className="cursor-pointer">Show Player Scores</Label>
+          </div>
         </div>
         <Separator />
       </div>
@@ -337,7 +346,10 @@ export default function TeamsAdminPage() {
                     <TableHead>Name</TableHead>
                     <TableHead>Members</TableHead>
                     <TableHead>Captain</TableHead>
-                    <TableHead>Score</TableHead>
+                    <TableHead>Team Score</TableHead>
+                    {showPlayerScores && (
+                      <TableHead>Player Avg. Score</TableHead>
+                    )}
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -345,11 +357,11 @@ export default function TeamsAdminPage() {
                   {teams.map((team) => (
                     <TableRow key={team.id}>
                       <TableCell className="font-medium">{team.name}</TableCell>
-                      <TableCell>{team.memberIds?.length || 0}</TableCell>
+                      <TableCell>{team.memberCount || team.memberIds?.length || 0}</TableCell>
                       <TableCell>
                         {team.captainId ? (
                           <Badge variant="outline" className="bg-green-50 text-green-700 hover:bg-green-50">
-                            Assigned
+                            {team.captain?.name || "Assigned"}
                           </Badge>
                         ) : (
                           <Badge variant="outline" className="bg-amber-50 text-amber-700 hover:bg-amber-50">
@@ -358,6 +370,17 @@ export default function TeamsAdminPage() {
                         )}
                       </TableCell>
                       <TableCell>{team.score}</TableCell>
+                      {showPlayerScores && (
+                        <TableCell>
+                          {team.averagePlayerScore !== undefined ? (
+                            <Badge variant="secondary" className="font-mono">
+                              {team.averagePlayerScore}
+                            </Badge>
+                          ) : (
+                            <span className="text-muted-foreground text-sm">No data</span>
+                          )}
+                        </TableCell>
+                      )}
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
                           <Button variant="outline" size="icon" asChild>

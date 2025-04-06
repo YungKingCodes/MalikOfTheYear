@@ -44,6 +44,15 @@ import {
   DialogFooter,
   DialogClose
 } from "@/components/ui/dialog"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
+} from "@/components/ui/table"
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 
 // Form validation schema
 const teamFormSchema = z.object({
@@ -67,6 +76,8 @@ export default function TeamDetailsPage({ params }: { params: { teamId: string }
   const [isUpdatingCaptain, setIsUpdatingCaptain] = useState(false)
   const [isJoiningTeam, setIsJoiningTeam] = useState(false)
   const [confirmJoinDialogOpen, setConfirmJoinDialogOpen] = useState(false)
+  const [teamScores, setTeamScores] = useState<any>(null)
+  const [scoresLoading, setScoresLoading] = useState(false)
   
   // Get the current user's ID
   const currentUserId = session?.user?.id
@@ -105,6 +116,11 @@ export default function TeamDetailsPage({ params }: { params: { teamId: string }
         // Load competitions
         const competitionsData = await getCompetitions()
         setCompetitions(competitionsData)
+        
+        // Load team scores if we have a competition ID
+        if (teamData.competitionId) {
+          loadTeamScores(teamData.competitionId)
+        }
       } catch (error) {
         console.error("Error loading data:", error)
         setError("Failed to load team data. Please try again.")
@@ -120,6 +136,37 @@ export default function TeamDetailsPage({ params }: { params: { teamId: string }
     
     loadData()
   }, [teamId, form, toast])
+  
+  // Function to load team scores
+  const loadTeamScores = async (competitionId: string) => {
+    if (!competitionId) return
+    
+    setScoresLoading(true)
+    try {
+      const response = await fetch(`/api/teams/${teamId}/scores?competitionId=${competitionId}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch team scores')
+      }
+      
+      const data = await response.json()
+      setTeamScores(data)
+    } catch (error) {
+      console.error('Error fetching team scores:', error)
+      toast({
+        title: "Error",
+        description: "Failed to load team scores. Some data may be incomplete.",
+        variant: "destructive"
+      })
+    } finally {
+      setScoresLoading(false)
+    }
+  }
   
   async function onSubmit(data: TeamFormValues) {
     setIsSubmitting(true)
@@ -654,6 +701,137 @@ export default function TeamDetailsPage({ params }: { params: { teamId: string }
             </div>
           </CardContent>
         </Card>
+
+        {/* Team Scores Section */}
+        {(session?.user?.role === 'admin' || isCaptain) && (
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Award className="h-5 w-5 text-primary" />
+                Team Performance
+              </CardTitle>
+              <CardDescription>
+                Player scores and team performance metrics
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {scoresLoading ? (
+                <div className="py-8 text-center">
+                  <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-muted mb-4 animate-pulse">
+                    <Award className="h-6 w-6 text-muted-foreground" />
+                  </div>
+                  <h3 className="text-lg font-medium">Loading scores...</h3>
+                </div>
+              ) : teamScores ? (
+                <div className="space-y-6">
+                  <div className="flex flex-col md:flex-row md:items-center md:justify-between">
+                    <div>
+                      <h3 className="text-lg font-medium">Team Average Score</h3>
+                      <p className="text-sm text-muted-foreground">Based on individual player assessments</p>
+                    </div>
+                    <div className="mt-2 md:mt-0">
+                      <div className="flex items-center gap-4">
+                        <div className="h-16 w-16 rounded-full border-4 border-primary flex items-center justify-center">
+                          <span className="text-xl font-bold">{teamScores.averageScore}</span>
+                        </div>
+                        <div>
+                          <p className="font-medium">{teamScores.totalMembers} Players</p>
+                          <p className="text-sm text-muted-foreground">
+                            {teamScores.averageScore < 70 ? "Below Average" : 
+                             teamScores.averageScore < 85 ? "Average" : "Above Average"}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <Separator />
+                  
+                  <div>
+                    <h3 className="text-lg font-medium mb-4">Player Scores</h3>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Player</TableHead>
+                          <TableHead>Self Assessment</TableHead>
+                          <TableHead>Peer Rating</TableHead>
+                          <TableHead>Final Score</TableHead>
+                          <TableHead>Role</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {teamScores.members.map((member: any) => (
+                          <TableRow key={member.id}>
+                            <TableCell>
+                              <div className="flex items-center gap-3">
+                                <Avatar className="h-8 w-8">
+                                  <AvatarImage src={member.image} alt={member.name} />
+                                  <AvatarFallback>
+                                    {member.name?.substring(0, 2).toUpperCase() || "U"}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <span className="font-medium">{member.name}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              {member.selfScore ? (
+                                <div className="flex items-center gap-1">
+                                  <span className="text-sm font-medium">
+                                    {member.selfScore.toFixed(1)}
+                                  </span>
+                                  <span className="text-xs text-muted-foreground">/5</span>
+                                </div>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">Not submitted</span>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {member.peerScore ? (
+                                <div className="flex items-center gap-1">
+                                  <span className="text-sm font-medium">
+                                    {member.peerScore.toFixed(1)}
+                                  </span>
+                                  <span className="text-xs text-muted-foreground">/5</span>
+                                </div>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">No ratings</span>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="secondary" className="font-mono">
+                                {member.finalScore}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              {member.isCaptain ? (
+                                <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100">
+                                  <Crown className="h-3 w-3 mr-1" />
+                                  Captain
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline">Member</Badge>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+              ) : (
+                <div className="py-8 text-center">
+                  <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-muted mb-4">
+                    <Award className="h-6 w-6 text-muted-foreground" />
+                  </div>
+                  <h3 className="text-lg font-medium">No Score Data Available</h3>
+                  <p className="text-sm text-muted-foreground mt-1 mb-4">
+                    Player scores will appear here once assessments are submitted.
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   )

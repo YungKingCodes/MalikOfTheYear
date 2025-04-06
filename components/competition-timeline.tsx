@@ -2,9 +2,10 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { CalendarDays, CheckCircle, Clock, Target, Crown, UserPlus } from "lucide-react"
+import { CalendarDays, CheckCircle, Clock, Target, Crown, UserPlus, Check } from "lucide-react"
 import { useState, useEffect } from "react"
 import { getCompetitionTimeline } from "@/app/actions/dashboard-stats"
+import { isUserRegisteredForCompetition } from "@/app/actions/competitions"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Progress } from "@/components/ui/progress"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -808,6 +809,7 @@ export function CompetitionTimeline({ competitionId }: { competitionId: string }
   const [timelineData, setTimelineData] = useState<CompetitionTimelineData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [isRegistered, setIsRegistered] = useState(false)
   
   // Load timeline for selected competition
   useEffect(() => {
@@ -825,6 +827,10 @@ export function CompetitionTimeline({ competitionId }: { competitionId: string }
           console.log("Timeline data loaded:", data);
           setTimelineData(data);
           setError(null);
+          
+          // Check if user is registered for this competition
+          const registered = await isUserRegisteredForCompetition(competitionId);
+          setIsRegistered(registered);
         } else {
           console.error("Timeline data is null or undefined");
           setError("Timeline data is unavailable");
@@ -983,12 +989,19 @@ export function CompetitionTimeline({ competitionId }: { competitionId: string }
                           {phase.type === "captain_voting" && <CaptainVotingButton phaseId={phase.id} />}
                           {phase.type === "team_formation" && <TeamFormationButton phaseId={phase.id} competitionId={competitionId} />}
                           {phase.type === "registration" && (
-                            <Button variant="outline" size="sm" className="flex items-center gap-1.5" asChild>
-                              <Link href="/register">
-                                <UserPlus className="h-3.5 w-3.5" />
-                                <span>Register</span>
-                              </Link>
-                            </Button>
+                            isRegistered ? (
+                              <Badge variant="secondary" className="flex items-center gap-1">
+                                <Check className="h-3.5 w-3.5" />
+                                <span>Registered</span>
+                              </Badge>
+                            ) : (
+                              <Button variant="outline" size="sm" className="flex items-center gap-1.5" asChild>
+                                <Link href="/register">
+                                  <UserPlus className="h-3.5 w-3.5" />
+                                  <span>Register</span>
+                                </Link>
+                              </Button>
+                            )
                           )}
                         </div>
                       )}

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { useToast } from "@/components/ui/use-toast"
-import { ChevronLeft, RefreshCw, Check } from "lucide-react"
+import { ChevronLeft, RefreshCw, Check, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -20,6 +20,10 @@ import {
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { getCompetitions } from "@/app/actions/competitions"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Checkbox } from "@/components/ui/checkbox"
+import { cn } from "@/lib/utils"
+import { Progress } from "@/components/ui/progress"
 
 export default function SwapPlayersPage() {
   const { toast } = useToast()
@@ -38,7 +42,11 @@ export default function SwapPlayersPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [isSwapping, setIsSwapping] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  
+  const [availablePlayers, setAvailablePlayers] = useState<any[]>([])
+  const [selectedPlayers, setSelectedPlayers] = useState<string[]>([])
+  const [playerScores, setPlayerScores] = useState<Record<string, number>>({})
+  const [teamData, setTeamData] = useState<Record<string, any>>({})
+
   // Load available competitions
   useEffect(() => {
     async function loadCompetitions() {
@@ -69,7 +77,9 @@ export default function SwapPlayersPage() {
       
       try {
         setIsLoading(true)
-        const response = await fetch(`/api/competitions/${selectedCompetitionId}/teams`)
+        const response = await fetch(`/api/teams?competitionId=${selectedCompetitionId}&includeScores=true`, {
+          credentials: "include"
+        })
         
         if (!response.ok) {
           throw new Error('Failed to fetch teams')
@@ -87,6 +97,22 @@ export default function SwapPlayersPage() {
             setSourceTeamId('')
           }
         }
+        
+        // Extract player scores into a map for easy access
+        const scoreMap: Record<string, number> = {}
+        
+        // Process each team's members
+        data.teams.forEach((team: any) => {
+          if (team.memberIds) {
+            team.memberIds.forEach((memberId: string, index: number) => {
+              if (team.memberScores && team.memberScores[index]) {
+                scoreMap[memberId] = team.memberScores[index]
+              }
+            })
+          }
+        })
+        
+        setPlayerScores(scoreMap)
         
         setError(null)
       } catch (err) {
@@ -230,6 +256,69 @@ export default function SwapPlayersPage() {
       .substring(0, 2)
   }
   
+  // Load team players
+  const loadTeamPlayers = async (teamId: string) => {
+    if (!teamId) return
+    
+    try {
+      const response = await fetch(`/api/teams/${teamId}/members`, {
+        credentials: "include"
+      })
+      
+      if (!response.ok) {
+        throw new Error("Failed to fetch team members")
+      }
+      
+      const data = await response.json()
+      
+      // Add player scores to the player objects if available
+      const playersWithScores = data.members.map((player: any) => ({
+        ...player,
+        score: playerScores[player.id] || player.proficiencyScore || 0
+      }))
+      
+      setAvailablePlayers(playersWithScores)
+      setSelectedPlayers([])
+    } catch (error) {
+      console.error("Error loading team players:", error)
+      toast({
+        title: "Error loading players",
+        description: "Could not load team members. Please try again.",
+        variant: "destructive"
+      })
+    }
+  }
+  
+  // Add function to calculate team score after swap
+  const calculateTeamScoreAfterSwap = (teamId: string, addPlayerIds: string[] = [], removePlayerIds: string[] = []) => {
+    const team = teamData[teamId]
+    if (!team) return { average: 0, totalScore: 0, playerCount: 0 }
+    
+    // Get current members excluding ones to be removed
+    const currentMembers = team.memberIds.filter(
+      (id: string) => !removePlayerIds.includes(id)
+    )
+    
+    // Calculate current total score
+    let totalScore = currentMembers.reduce((sum: number, id: string) => {
+      return sum + (playerScores[id] || 50)
+    }, 0)
+    
+    // Add scores of new players
+    addPlayerIds.forEach(id => {
+      totalScore += (playerScores[id] || 50)
+    })
+    
+    const finalMemberCount = currentMembers.length + addPlayerIds.length
+    const average = finalMemberCount > 0 ? Math.round(totalScore / finalMemberCount) : 0
+    
+    return {
+      average,
+      totalScore,
+      playerCount: finalMemberCount
+    }
+  }
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center">

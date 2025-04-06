@@ -2,11 +2,7 @@
 
 import { Progress } from "@/components/ui/progress"
 import { Award } from "lucide-react"
-
-interface ProficiencyData {
-  name: string
-  score: number
-}
+import { ProficiencyData } from "@/types/player"
 
 interface PlayerProficiencyChartSmallProps {
   proficiencies: ProficiencyData[]

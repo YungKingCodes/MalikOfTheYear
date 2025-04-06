@@ -26,21 +26,39 @@ export async function getTeamById(teamId: string) {
 }
 
 // Fetch users
-export async function getUsers(options?: { teamId?: string; role?: string }) {
-  const params = new URLSearchParams()
-  if (options?.teamId) {
-    params.append("teamId", options.teamId)
-  }
-  if (options?.role) {
-    params.append("role", options.role)
-  }
+export async function getUsers(options?: {
+  search?: string;
+  role?: string;
+  team?: string;
+  hasTitles?: boolean;
+}) {
+  try {
+    const queryParams = new URLSearchParams();
+    
+    // Add each filter parameter if it exists
+    if (options?.search) queryParams.append('search', options.search);
+    if (options?.role) queryParams.append('role', options.role);
+    if (options?.team) queryParams.append('team', options.team);
+    if (options?.hasTitles) queryParams.append('hasTitles', 'true');
+    
+    const queryString = queryParams.toString() ? `?${queryParams.toString()}` : '';
+    
+    const response = await fetch(`/api/users${queryString}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    })
 
-  const response = await fetch(`/api/users?${params.toString()}`)
-  if (!response.ok) {
-    throw new Error("Failed to fetch users")
-  }
+    if (!response.ok) {
+      throw new Error("Failed to fetch users")
+    }
 
-  return response.json()
+    return await response.json()
+  } catch (error) {
+    console.error("Error in getUsers:", error)
+    return []
+  }
 }
 
 // Fetch user by ID

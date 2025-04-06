@@ -12,74 +12,62 @@ export async function GET(request: Request) {
         { status: 401 }
       )
     }
-    
+
     // Get query parameters
-    const { searchParams } = new URL(request.url)
-    const teamId = searchParams.get("teamId")
-    const role = searchParams.get("role")
-    const search = searchParams.get("search")
-    const excludeTeamId = searchParams.get("excludeTeamId")
+    const url = new URL(request.url)
+    const search = url.searchParams.get('search') || ''
+    const role = url.searchParams.get('role') || ''
+    const teamId = url.searchParams.get('team') || ''
+    const hasTitles = url.searchParams.get('hasTitles') === 'true'
+
+    // Build filter conditions
+    const whereConditions: any = {}
     
-    // Build query
-    const query: any = {}
-    
-    // Filter by team if specified
-    if (teamId) {
-      query.teamId = teamId
-    }
-    
-    // Filter by role if specified
-    if (role) {
-      query.role = role
-    }
-    
-    // Search by name or email if search term is provided
     if (search) {
-      query.OR = [
-        {
-          name: {
-            contains: search,
-            mode: 'insensitive'
-          }
-        },
-        {
-          email: {
-            contains: search,
-            mode: 'insensitive'
-          }
-        }
+      whereConditions.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } },
+        { position: { contains: search, mode: 'insensitive' } }
       ]
     }
     
-    // Exclude users from a specific team
-    if (excludeTeamId) {
-      query.NOT = {
-        teamId: excludeTeamId
-      }
+    if (role) {
+      whereConditions.role = role
     }
     
-    // Get users from database with proper access control
-    // Only admins can see all users, others have restricted access
-    const isAdmin = session.user.role === "admin"
+    if (teamId) {
+      whereConditions.teamId = teamId
+    }
     
+    if (hasTitles) {
+      whereConditions.titles = { isEmpty: false }
+    }
+
+    // Fetch users
     const users = await db.user.findMany({
-      where: query,
-      select: {
-        id: true,
-        name: true,
-        email: isAdmin ? true : false, // Only admins can see emails
-        image: true,
-        role: true,
-        teamId: true,
-        position: true
-      },
-      orderBy: {
-        name: 'asc'
-      },
-      take: 20 // Limit results to prevent overloading
+      where: whereConditions,
+      include: {
+        team: true
+      }
     })
-    
-    return NextResponse.json(users)
+
+    // Format users for the response
+    const formattedUsers = users.map(user => ({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      image: user.image,
+      role: user.role,
+      position: user.position,
+      teamId: user.teamId,
+      teamName: user.team?.name || "Unassigned",
+      titles: user.titles || [],
+      proficiencyScore: user.proficiencyScore || 0,
+      proficiencies: user.proficiencies || [],
+      createdAt: user.createdAt
+    }))
+
+    return NextResponse.json(formattedUsers)
   } catch (error) {
     console.error("Error fetching users:", error)
     return NextResponse.json({ error: "Failed to fetch users" }, { status: 500 })
