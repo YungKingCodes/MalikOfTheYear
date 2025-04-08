@@ -19,7 +19,8 @@ import {
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Skeleton } from "@/components/ui/skeleton"
-import { getCompetitions } from "@/app/actions/competitions"
+import { getCompetitions, getCompetitionRegisteredUsersCount } from "@/app/actions/competitions"
+import { getUserCompetitionRegistrations } from "@/app/actions/competitions"
 
 interface Team {
   id: string
@@ -39,6 +40,7 @@ interface Competition {
   gameIds: string[]
   winnerId?: string | null
   goatId?: string | null
+  playerCount?: number
 }
 
 export function CompetitionsTab() {
@@ -54,7 +56,17 @@ export function CompetitionsTab() {
       try {
         setLoading(true)
         const competitionsData = await getCompetitions()
-        setCompetitions(competitionsData)
+        // Fetch player counts for each competition
+        const competitionsWithPlayerCounts = await Promise.all(
+          competitionsData.map(async (comp) => {
+            const playerCount = await getCompetitionRegisteredUsersCount(comp.id)
+            return {
+              ...comp,
+              playerCount
+            }
+          })
+        )
+        setCompetitions(competitionsWithPlayerCounts)
       } catch (err) {
         console.error("Failed to load competitions:", err)
         setError("Failed to load competitions. Please try again later.")
@@ -117,14 +129,14 @@ export function CompetitionsTab() {
                         {competition.status === "active"
                           ? "In Progress"
                           : competition.winnerId
-                            ? "Winner Team"
+                            ? competition.teams?.find(t => t.id === competition.winnerId)?.name || "Winner Team"
                             : "TBD"}
                       </div>
                       <div>
                         {competition.status === "active"
                           ? "TBD"
                           : competition.goatId
-                            ? "GOAT Player" 
+                            ? "GOAT Player"
                             : "TBD"}
                       </div>
                     </div>
@@ -179,7 +191,7 @@ function CompetitionCard({ competition, isAdmin }: { competition: Competition; i
               <div className="flex items-center gap-2">
                 <Users className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm">
-                  {competition.teams?.length || 0} Teams, {(competition.teams?.length || 0) * 8} Players
+                  {competition.teams?.length || 0} Teams, {competition.playerCount || 0} Players
                 </span>
               </div>
             </>
@@ -190,7 +202,7 @@ function CompetitionCard({ competition, isAdmin }: { competition: Competition; i
                 <span className="text-sm">
                   Winner:{" "}
                   {competition.winnerId
-                    ? "Winner Team"
+                    ? competition.teams?.find(t => t.id === competition.winnerId)?.name || "Winner Team"
                     : "N/A"}
                 </span>
               </div>

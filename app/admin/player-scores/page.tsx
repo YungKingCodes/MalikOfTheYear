@@ -125,13 +125,13 @@ export default function AdminPlayerScoresPage() {
       peerScoreAvg = peerScoreSum / peerScores.length
     }
     
-    // Calculate final score - weight self-assessment at 60% and peer ratings at 40%
+    // Calculate final score - weight self-assessment at 40% and peer ratings at 60%
     let finalScore = user.proficiencyScore || 0
     
     if (selfScores.length > 0 || peerScores.length > 0) {
       if (selfScores.length > 0 && peerScores.length > 0) {
         // Both self and peer scores available
-        finalScore = Math.round(selfScoreAvg * 0.6 + peerScoreAvg * 0.4)
+        finalScore = Math.round(selfScoreAvg * 0.4 + peerScoreAvg * 0.6)
       } else if (selfScores.length > 0) {
         // Only self-assessment available
         finalScore = Math.round(selfScoreAvg)
@@ -165,27 +165,27 @@ export default function AdminPlayerScoresPage() {
   }
 
   return (
-    <div className="container mx-auto py-6">
-      <div className="flex items-center justify-between mb-6">
+    <div className="container mx-auto py-4 md:py-6">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4 md:mb-6">
         <div>
-          <h1 className="text-2xl font-bold">Player Scores</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-2xl md:text-3xl font-bold">Player Scores</h1>
+          <p className="text-sm md:text-base text-muted-foreground">
             View and analyze player self-assessment and peer review scores
           </p>
         </div>
       </div>
 
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
+        <h2 className="text-lg md:text-xl font-semibold">
           {selectedCompetition ? competitions.find(c => c.id === selectedCompetition)?.name || "No Competition Selected" : "No Competition Selected"}
         </h2>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
           <Input
             placeholder="Search players..."
-            className="w-64"
+            className="w-full sm:w-64"
             type="search"
           />
-          <div className="w-[200px]">
+          <div className="w-full sm:w-[200px]">
             <Select
               value={selectedCompetition}
               onValueChange={handleCompetitionChange}

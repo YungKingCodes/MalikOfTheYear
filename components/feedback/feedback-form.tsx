@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -11,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast"
 import { Loader2 } from "lucide-react"
 import { createFeedback, type FeedbackFormValues } from "@/app/actions/feedback"
+import { useRouter } from "next/navigation"
 
 export function FeedbackForm() {
   const [formData, setFormData] = useState<FeedbackFormValues>({
@@ -20,6 +20,7 @@ export function FeedbackForm() {
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
   const { toast } = useToast()
+  const router = useRouter()
 
   const handleChange = (field: keyof FeedbackFormValues, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }))
@@ -53,6 +54,9 @@ export function FeedbackForm() {
         description: "",
         category: "feature",
       })
+
+      // Refresh the page to show the new feedback
+      router.refresh()
     } catch (error) {
       toast({
         title: "Error submitting feedback",
@@ -70,9 +74,9 @@ export function FeedbackForm() {
         <CardTitle className="text-primary text-xl">Submit Feedback</CardTitle>
         <CardDescription>Share your ideas and suggestions</CardDescription>
       </CardHeader>
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit} className="space-y-4">
         <CardContent className="p-4 md:p-6 pt-4 md:pt-6 space-y-3 md:space-y-4">
-          <div className="space-y-1 md:space-y-2">
+          <div className="space-y-2">
             <label htmlFor="title" className="text-sm font-medium">
               Title
             </label>
@@ -86,7 +90,7 @@ export function FeedbackForm() {
             />
           </div>
 
-          <div className="space-y-1 md:space-y-2">
+          <div className="space-y-2">
             <label htmlFor="category" className="text-sm font-medium">
               Category
             </label>
@@ -105,7 +109,7 @@ export function FeedbackForm() {
             </Select>
           </div>
 
-          <div className="space-y-1 md:space-y-2">
+          <div className="space-y-2">
             <label htmlFor="description" className="text-sm font-medium">
               Description
             </label>

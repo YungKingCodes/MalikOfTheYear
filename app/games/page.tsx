@@ -1,5 +1,5 @@
 import { Suspense } from "react"
-import { notFound } from "next/navigation"
+import { redirect } from "next/navigation"
 import { auth } from "@/auth"
 import { ProtectedRoute } from "@/components/auth/protected-route"
 import { getGames, getSuggestedGames } from "@/app/actions/games"
@@ -16,7 +16,7 @@ export default async function GamesPage() {
   
   // Check if user is authorized to view this page
   if (!session?.user) {
-    notFound()
+    redirect("/auth/login")
   }
   
   // Fetch games and suggested games in parallel

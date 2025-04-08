@@ -338,18 +338,40 @@ export function GamesPageClient({
         )}
       </div>
 
-      <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="flex w-full overflow-x-auto whitespace-nowrap scrollbar-none">
-          <TabsTrigger value="all" className="flex-shrink-0">All Games</TabsTrigger>
-          <TabsTrigger value="available" className="flex-shrink-0">Available</TabsTrigger>
-          <TabsTrigger value="scheduled" className="flex-shrink-0">Scheduled</TabsTrigger>
-          <TabsTrigger value="completed" className="flex-shrink-0">Completed</TabsTrigger>
-          <TabsTrigger value="suggested" className="flex-shrink-0">Suggested</TabsTrigger>
-        </TabsList>
+      {/* Mobile Navigation */}
+      <div className="block md:hidden">
+        <Select value={activeTab} onValueChange={setActiveTab}>
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Select view" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Games</SelectItem>
+            <SelectItem value="available">Available</SelectItem>
+            <SelectItem value="scheduled">Scheduled</SelectItem>
+            <SelectItem value="completed">Completed</SelectItem>
+            <SelectItem value="suggested">Suggested</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
 
+      {/* Desktop Navigation */}
+      <div className="hidden md:block">
+        <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="w-full">
+            <TabsTrigger value="all">All Games</TabsTrigger>
+            <TabsTrigger value="available">Available</TabsTrigger>
+            <TabsTrigger value="scheduled">Scheduled</TabsTrigger>
+            <TabsTrigger value="completed">Completed</TabsTrigger>
+            <TabsTrigger value="suggested">Suggested</TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </div>
+
+      {/* Content */}
+      <div className="mt-6">
         {/* All games, Available, Scheduled, Completed tabs */}
         {['all', 'available', 'scheduled', 'completed'].map(tab => (
-          <TabsContent key={tab} value={tab} className="mt-6">
+          <div key={tab} className={activeTab === tab ? 'block' : 'hidden'}>
             <div className="relative w-full mb-4">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
@@ -363,7 +385,6 @@ export function GamesPageClient({
             {filteredGames.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {filteredGames.map(game => {
-                  // Transform to match GameCard's expected type
                   const gameCardData = {
                     id: game.id,
                     name: game.name,
@@ -381,7 +402,7 @@ export function GamesPageClient({
                     team2: game.participants?.[1]?.team,
                   };
 
-                      return (
+                  return (
                     <GameCard
                       key={game.id}
                       game={gameCardData}
@@ -399,11 +420,11 @@ export function GamesPageClient({
                 description={`${searchQuery ? "Try a different search term or " : ""}Check back later for more games.`}
               />
             )}
-          </TabsContent>
+          </div>
         ))}
 
         {/* Suggested games tab */}
-        <TabsContent value="suggested" className="mt-6">
+        <div className={activeTab === 'suggested' ? 'block' : 'hidden'}>
           <div className="flex flex-col sm:flex-row justify-between gap-3 mb-4">
             <div className="relative w-full">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -496,8 +517,8 @@ export function GamesPageClient({
               }
             />
           )}
-        </TabsContent>
-      </Tabs>
+        </div>
+      </div>
 
       {/* Game Details Modal */}
       <GameDetailsModal

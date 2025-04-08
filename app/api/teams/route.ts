@@ -133,12 +133,12 @@ export async function GET(request: Request) {
           peerScoreAvg = peerScoreSum / userPeerRatings.length
         }
         
-        // Calculate final score with 60/40 weighting
+        // Calculate final score with 40/60 weighting
         let finalScore = userMap.get(userId)?.proficiencyScore || 0
         
         if (userSelfScores.length > 0 || userPeerRatings.length > 0) {
           if (userSelfScores.length > 0 && userPeerRatings.length > 0) {
-            finalScore = Math.round(selfScoreAvg * 0.6 + peerScoreAvg * 0.4)
+            finalScore = Math.round(selfScoreAvg * 0.4 + peerScoreAvg * 0.6)
           } else if (userSelfScores.length > 0) {
             finalScore = Math.round(selfScoreAvg)
           } else if (userPeerRatings.length > 0) {

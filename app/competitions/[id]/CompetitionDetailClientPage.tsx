@@ -12,7 +12,7 @@ import { useToast } from "@/components/ui/use-toast"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { CheckCircle2, Calendar, Trophy, Users, Crown, Loader2, MapPin, Clock, Gamepad2 } from "lucide-react"
-import { getCompetitionById, isUserRegisteredForCompetition, registerUserForCompetition } from "@/app/actions/competitions"
+import { getCompetitionById, isUserRegisteredForCompetition, registerUserForCompetition, getCompetitionRegisteredUsersCount } from "@/app/actions/competitions"
 import { DashboardLoading as CompetitionLoadingSpinner } from "@/components/loading-skeletons/competition-detail-skeleton"
 
 interface CompetitionDetailProps {
@@ -25,6 +25,7 @@ export default function CompetitionDetailClientPage({ id }: CompetitionDetailPro
   const [isRegistered, setIsRegistered] = useState(false)
   const [showRegistrationModal, setShowRegistrationModal] = useState(false)
   const [registering, setRegistering] = useState(false)
+  const [totalPlayers, setTotalPlayers] = useState(0)
   const { data: session } = useSession()
   const { toast } = useToast()
   const router = useRouter()
@@ -35,6 +36,17 @@ export default function CompetitionDetailClientPage({ id }: CompetitionDetailPro
         // Fetch competition details
         const competitionData = await getCompetitionById(id)
         setCompetition(competitionData)
+        
+        // Get registered users count
+        const registeredUsers = await getCompetitionRegisteredUsersCount(id)
+        
+        // Calculate team members count
+        const teamMembersCount = competitionData.teams?.reduce((sum: number, team: any) => {
+          return sum + (team?.members?.length || 0)
+        }, 0) || 0
+        
+        // Set total players (registered users + team members)
+        setTotalPlayers(registeredUsers + teamMembersCount)
         
         // Check if user is registered
         if (session?.user) {
@@ -150,7 +162,7 @@ export default function CompetitionDetailClientPage({ id }: CompetitionDetailPro
             <div>
               <p className="font-medium">Players</p>
               <p className="text-sm text-muted-foreground">
-                {competition.teams?.reduce((acc: number, team: any) => acc + (team.members?.length || 0), 0) || 0} Registered Players
+                {totalPlayers} Registered Players
               </p>
             </div>
           </CardContent>

@@ -12,6 +12,7 @@ import { useSession } from "next-auth/react"
 import { useToast } from "@/hooks/use-toast"
 import { getFeedback, voteFeedback, updateFeedbackStatus } from "@/app/actions/feedback"
 import { format } from "date-fns"
+import { useRouter } from "next/navigation"
 
 // Define interfaces for our data types
 interface FeedbackItem {
@@ -35,7 +36,8 @@ export function FeedbackList() {
   const [feedback, setFeedback] = useState<FeedbackItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
-  const { data: session } = useSession()
+  const { data: session, status } = useSession()
+  const router = useRouter()
   const user = session?.user
   const [filteredFeedback, setFilteredFeedback] = useState<FeedbackItem[]>([])
   const [searchQuery, setSearchQuery] = useState("")
@@ -50,18 +52,29 @@ export function FeedbackList() {
     const loadFeedback = async () => {
       try {
         setLoading(true)
-        const data = await getFeedback()
-        setFeedback(data)
+        // Only try to load feedback if we have a session
+        if (status === "authenticated") {
+          const data = await getFeedback()
+          setFeedback(data)
+        } else if (status === "unauthenticated") {
+          // Redirect to login if not authenticated
+          router.push("/auth/login")
+        }
       } catch (err) {
         console.error("Failed to load feedback:", err)
         setError("Failed to load feedback. Please try again later.")
+        toast({
+          title: "Error",
+          description: "Failed to load feedback. Please try again later.",
+          variant: "destructive",
+        })
       } finally {
         setLoading(false)
       }
     }
 
     loadFeedback()
-  }, [])
+  }, [status, router, toast])
 
   // Filter feedback based on search and tab
   useEffect(() => {

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { PlusIcon, SettingsIcon } from "lucide-react"
 import Link from "next/link"
 import { auth } from "@/auth"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 
 export const metadata = {
   title: "Feedback & Suggestions",
@@ -34,22 +35,25 @@ export default async function FeedbackPage() {
                 </Link>
               </Button>
             )}
-            <Button asChild className="sm:w-auto" size="sm">
-              <Link href="#submit-feedback">
-                <PlusIcon className="h-4 w-4 mr-2" />
-                Add Feedback
-              </Link>
-            </Button>
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button className="sm:w-auto" size="sm">
+                  <PlusIcon className="h-4 w-4 mr-2" />
+                  Add Feedback
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[600px]">
+                <DialogHeader>
+                  <DialogTitle>Submit Feedback</DialogTitle>
+                </DialogHeader>
+                <FeedbackForm />
+              </DialogContent>
+            </Dialog>
           </div>
         </div>
 
         {/* Feedback List */}
         <FeedbackList />
-
-        {/* Submit Feedback Form */}
-        <div className="max-w-xl mx-auto" id="submit-feedback">
-          <FeedbackForm />
-        </div>
       </div>
     </ProtectedRoute>
   )

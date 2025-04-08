@@ -22,35 +22,35 @@ export default async function AdminDashboardPage() {
   }
   
   return (
-    <div className="container py-8">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
+    <div className="container py-4 md:py-8">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-4 md:mb-8">
         <div>
-          <h1 className="text-3xl font-bold">Admin Dashboard</h1>
-          <p className="text-muted-foreground">Manage your competitions, teams, and games</p>
+          <h1 className="text-2xl md:text-3xl font-bold">Admin Dashboard</h1>
+          <p className="text-sm md:text-base text-muted-foreground">Manage your competitions, teams, and games</p>
         </div>
       </div>
       
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center">
-              <Trophy className="h-5 w-5 text-primary mr-2" />
+      <div className="grid gap-4 md:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+        <Card className="h-full">
+          <CardHeader className="pb-2 md:pb-3">
+            <CardTitle className="flex items-center text-lg md:text-xl">
+              <Trophy className="h-4 w-4 md:h-5 md:w-5 text-primary mr-2" />
               Competitions
             </CardTitle>
-            <CardDescription>Manage your competitions</CardDescription>
+            <CardDescription className="text-xs md:text-sm">Manage your competitions</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 gap-3">
-                <Button asChild variant="outline" size="sm" className="justify-start">
+            <div className="space-y-2 md:space-y-4">
+              <div className="grid grid-cols-1 gap-2 md:gap-3">
+                <Button asChild variant="outline" size="sm" className="justify-start text-sm">
                   <Link href="/admin/competitions">
-                    <PieChart className="h-4 w-4 mr-2" />
+                    <PieChart className="h-3 w-3 md:h-4 md:w-4 mr-2" />
                     View All Competitions
                   </Link>
                 </Button>
-                <Button asChild variant="outline" size="sm" className="justify-start">
+                <Button asChild variant="outline" size="sm" className="justify-start text-sm">
                   <Link href="/admin/competitions/new">
-                    <Trophy className="h-4 w-4 mr-2" />
+                    <Trophy className="h-3 w-3 md:h-4 md:w-4 mr-2" />
                     Create New Competition
                   </Link>
                 </Button>
@@ -59,20 +59,20 @@ export default async function AdminDashboardPage() {
           </CardContent>
         </Card>
         
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center">
-              <Gamepad className="h-5 w-5 text-primary mr-2" />
+        <Card className="h-full">
+          <CardHeader className="pb-2 md:pb-3">
+            <CardTitle className="flex items-center text-lg md:text-xl">
+              <Gamepad className="h-4 w-4 md:h-5 md:w-5 text-primary mr-2" />
               Games
             </CardTitle>
-            <CardDescription>Manage your games</CardDescription>
+            <CardDescription className="text-xs md:text-sm">Manage your games</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 gap-3">
-                <Button asChild variant="outline" size="sm" className="justify-start">
+            <div className="space-y-2 md:space-y-4">
+              <div className="grid grid-cols-1 gap-2 md:gap-3">
+                <Button asChild variant="outline" size="sm" className="justify-start text-sm">
                   <Link href="/admin/games">
-                    <Gamepad className="h-4 w-4 mr-2" />
+                    <Gamepad className="h-3 w-3 md:h-4 md:w-4 mr-2" />
                     Manage Games
                   </Link>
                 </Button>
@@ -81,26 +81,26 @@ export default async function AdminDashboardPage() {
           </CardContent>
         </Card>
         
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center">
-              <Users className="h-5 w-5 text-primary mr-2" />
+        <Card className="h-full">
+          <CardHeader className="pb-2 md:pb-3">
+            <CardTitle className="flex items-center text-lg md:text-xl">
+              <Users className="h-4 w-4 md:h-5 md:w-5 text-primary mr-2" />
               Teams
             </CardTitle>
-            <CardDescription>Manage your teams</CardDescription>
+            <CardDescription className="text-xs md:text-sm">Manage your teams</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 gap-3">
-                <Button asChild variant="outline" size="sm" className="justify-start">
+            <div className="space-y-2 md:space-y-4">
+              <div className="grid grid-cols-1 gap-2 md:gap-3">
+                <Button asChild variant="outline" size="sm" className="justify-start text-sm">
                   <Link href="/admin/teams">
-                    <Users className="h-4 w-4 mr-2" />
+                    <Users className="h-3 w-3 md:h-4 md:w-4 mr-2" />
                     Manage Teams
                   </Link>
                 </Button>
-                <Button asChild variant="outline" size="sm" className="justify-start">
+                <Button asChild variant="outline" size="sm" className="justify-start text-sm">
                   <Link href="/admin/player-scores">
-                    <Activity className="h-4 w-4 mr-2" />
+                    <Activity className="h-3 w-3 md:h-4 md:w-4 mr-2" />
                     Player Scores
                   </Link>
                 </Button>
@@ -109,20 +109,20 @@ export default async function AdminDashboardPage() {
           </CardContent>
         </Card>
         
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center">
-              <Settings className="h-5 w-5 text-primary mr-2" />
+        <Card className="h-full">
+          <CardHeader className="pb-2 md:pb-3">
+            <CardTitle className="flex items-center text-lg md:text-xl">
+              <Settings className="h-4 w-4 md:h-5 md:w-5 text-primary mr-2" />
               Settings
             </CardTitle>
-            <CardDescription>Manage application settings</CardDescription>
+            <CardDescription className="text-xs md:text-sm">Manage application settings</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 gap-3">
-                <Button asChild variant="outline" size="sm" className="justify-start">
+            <div className="space-y-2 md:space-y-4">
+              <div className="grid grid-cols-1 gap-2 md:gap-3">
+                <Button asChild variant="outline" size="sm" className="justify-start text-sm">
                   <Link href="/admin/settings">
-                    <Settings className="h-4 w-4 mr-2" />
+                    <Settings className="h-3 w-3 md:h-4 md:w-4 mr-2" />
                     Application Settings
                   </Link>
                 </Button>

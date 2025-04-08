@@ -177,47 +177,49 @@ export function TeamsTab() {
             </CardHeader>
             <CardContent>
               <div className="space-y-8">
-                <div className="rounded-md border">
-                  <div className="grid grid-cols-6 p-4 font-medium">
-                    <div>Team</div>
-                    <div>Captain</div>
-                    <div>Members</div>
-                    <div>Score</div>
-                    <div>Rank</div>
-                    <div className="text-right">Actions</div>
-                  </div>
-                  <div className="divide-y">
-                    {teams.map((team, i) => (
-                      <div key={team._id} className="grid grid-cols-6 p-4 items-center">
-                        <div className="flex items-center gap-3">
-                          <Avatar className="h-8 w-8">
-                            <AvatarImage
-                              src={`/placeholder.svg?height=32&width=32&text=${team.name.substring(0, 2)}`}
-                              alt={team.name}
-                            />
-                            <AvatarFallback>{team.name.substring(0, 2)}</AvatarFallback>
-                          </Avatar>
+                <div className="rounded-md border overflow-x-auto">
+                  <div className="min-w-[800px]">
+                    <div className="grid grid-cols-6 p-4 font-medium">
+                      <div>Team</div>
+                      <div>Captain</div>
+                      <div>Members</div>
+                      <div>Score</div>
+                      <div>Rank</div>
+                      <div className="text-right">Actions</div>
+                    </div>
+                    <div className="divide-y">
+                      {teams.map((team, i) => (
+                        <div key={team._id} className="grid grid-cols-6 p-4 items-center">
+                          <div className="flex items-center gap-3">
+                            <Avatar className="h-8 w-8">
+                              <AvatarImage
+                                src={`/placeholder.svg?height=32&width=32&text=${team.name.substring(0, 2)}`}
+                                alt={team.name}
+                              />
+                              <AvatarFallback>{team.name.substring(0, 2)}</AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <p className="text-sm font-medium">{team.name}</p>
+                            </div>
+                          </div>
+                          <div className="text-sm">{team.captain}</div>
+                          <div className="text-sm">{team.members && team.members.length ? team.members.length : 0}/8</div>
+                          <div className="text-sm">{team.score}</div>
                           <div>
-                            <p className="text-sm font-medium">{team.name}</p>
+                            <Badge variant={i < 3 ? "default" : "outline"} className="text-xs">
+                              #{i + 1}
+                            </Badge>
+                          </div>
+                          <div className="flex justify-end gap-2">
+                            {isAdmin && (
+                              <Button variant="ghost" size="sm">
+                                Edit
+                              </Button>
+                            )}
                           </div>
                         </div>
-                        <div className="text-sm">{team.captain}</div>
-                        <div className="text-sm">{team.members && team.members.length ? team.members.length : 0}/8</div>
-                        <div className="text-sm">{team.score}</div>
-                        <div>
-                          <Badge variant={i < 3 ? "default" : "outline"} className="text-xs">
-                            #{i + 1}
-                          </Badge>
-                        </div>
-                        <div className="flex justify-end gap-2">
-                          {isAdmin && (
-                            <Button variant="ghost" size="sm">
-                              Edit
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -233,49 +235,50 @@ export function TeamsTab() {
             </CardHeader>
             <CardContent>
               <div className="space-y-8">
-                <div className="rounded-md border">
-                  <div className="grid grid-cols-5 p-4 font-medium">
-                    <div>Team</div>
-                    <div>Captain</div>
-                    <div>Members</div>
-                    <div>Needed</div>
-                    <div className="text-right">Actions</div>
-                  </div>
-                  <div className="divide-y">
-                    {teams
-                      .filter((team) => {
-                        // Safely check if members exist and length is less than 8
-                        const memberCount = team.members && Array.isArray(team.members) ? team.members.length : 0;
-                        return memberCount < 8;
-                      })
-                      .map((team, i) => (
-                        <div key={team._id} className="grid grid-cols-5 p-4 items-center">
-                          <div className="flex items-center gap-3">
-                            <Avatar className="h-8 w-8">
-                              <AvatarImage
-                                src={`/placeholder.svg?height=32&width=32&text=${team.name.substring(0, 2)}`}
-                                alt={team.name}
-                              />
-                              <AvatarFallback>{team.name.substring(0, 2)}</AvatarFallback>
-                            </Avatar>
-                            <div>
-                              <p className="text-sm font-medium">{team.name}</p>
+                <div className="rounded-md border overflow-x-auto">
+                  <div className="min-w-[700px]">
+                    <div className="grid grid-cols-5 p-4 font-medium">
+                      <div>Team</div>
+                      <div>Captain</div>
+                      <div>Members</div>
+                      <div>Needed</div>
+                      <div className="text-right">Actions</div>
+                    </div>
+                    <div className="divide-y">
+                      {teams
+                        .filter((team) => {
+                          const memberCount = team.members && Array.isArray(team.members) ? team.members.length : 0;
+                          return memberCount < 8;
+                        })
+                        .map((team, i) => (
+                          <div key={team._id} className="grid grid-cols-5 p-4 items-center">
+                            <div className="flex items-center gap-3">
+                              <Avatar className="h-8 w-8">
+                                <AvatarImage
+                                  src={`/placeholder.svg?height=32&width=32&text=${team.name.substring(0, 2)}`}
+                                  alt={team.name}
+                                />
+                                <AvatarFallback>{team.name.substring(0, 2)}</AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <p className="text-sm font-medium">{team.name}</p>
+                              </div>
+                            </div>
+                            <div className="text-sm">{team.captain}</div>
+                            <div className="text-sm">{team.members && team.members.length ? team.members.length : 0}/8</div>
+                            <div className="text-sm">
+                              {8 - (team.members && team.members.length ? team.members.length : 0)} player{8 - (team.members && team.members.length ? team.members.length : 0) !== 1 ? "s" : ""}
+                            </div>
+                            <div className="flex justify-end gap-2">
+                              {isAdmin && (
+                                <Button variant="outline" size="sm">
+                                  Add Players
+                                </Button>
+                              )}
                             </div>
                           </div>
-                          <div className="text-sm">{team.captain}</div>
-                          <div className="text-sm">{team.members && team.members.length ? team.members.length : 0}/8</div>
-                          <div className="text-sm">
-                            {8 - (team.members && team.members.length ? team.members.length : 0)} player{8 - (team.members && team.members.length ? team.members.length : 0) !== 1 ? "s" : ""}
-                          </div>
-                          <div className="flex justify-end gap-2">
-                            {isAdmin && (
-                              <Button variant="outline" size="sm">
-                                Add Players
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                      ))}
+                        ))}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -298,60 +301,62 @@ export function TeamsTab() {
                 <div className="py-4 text-center text-destructive">{votingTeamsError}</div>
               ) : (
                 <div className="space-y-8">
-                  <div className="rounded-md border">
-                    <div className="grid grid-cols-5 p-4 font-medium">
-                      <div>Team</div>
-                      <div>Members</div>
-                      <div>Votes Cast</div>
-                      <div>Status</div>
-                      <div className="text-right">Actions</div>
-                    </div>
-                    <div className="divide-y">
-                      {votingTeams.length > 0 ? (
-                        votingTeams.map((team) => (
-                          <div key={team._id} className="grid grid-cols-5 p-4 items-center">
-                            <div className="flex items-center gap-3">
-                              <Avatar className="h-8 w-8">
-                                <AvatarImage
-                                  src={`/placeholder.svg?height=32&width=32&text=${team.name.substring(0, 2)}`}
-                                  alt={team.name}
-                                />
-                                <AvatarFallback>{team.name.substring(0, 2)}</AvatarFallback>
-                              </Avatar>
+                  <div className="rounded-md border overflow-x-auto">
+                    <div className="min-w-[700px]">
+                      <div className="grid grid-cols-5 p-4 font-medium">
+                        <div>Team</div>
+                        <div>Members</div>
+                        <div>Votes Cast</div>
+                        <div>Status</div>
+                        <div className="text-right">Actions</div>
+                      </div>
+                      <div className="divide-y">
+                        {votingTeams.length > 0 ? (
+                          votingTeams.map((team) => (
+                            <div key={team._id} className="grid grid-cols-5 p-4 items-center">
+                              <div className="flex items-center gap-3">
+                                <Avatar className="h-8 w-8">
+                                  <AvatarImage
+                                    src={`/placeholder.svg?height=32&width=32&text=${team.name.substring(0, 2)}`}
+                                    alt={team.name}
+                                  />
+                                  <AvatarFallback>{team.name.substring(0, 2)}</AvatarFallback>
+                                </Avatar>
+                                <div>
+                                  <p className="text-sm font-medium">{team.name}</p>
+                                </div>
+                              </div>
+                              <div className="text-sm">{team.members?.length || 0}/{team.totalMembers}</div>
+                              <div className="text-sm">{team.votesCast}/{team.totalMembers}</div>
                               <div>
-                                <p className="text-sm font-medium">{team.name}</p>
+                                <Badge 
+                                  variant={team.votingPercentage === 100 ? "default" : "outline"} 
+                                  className="text-xs"
+                                >
+                                  {team.votingPercentage === 100 ? "Complete" : "In Progress"}
+                                </Badge>
+                              </div>
+                              <div className="flex justify-end gap-2">
+                                {isAdmin && (
+                                  <>
+                                    <Button variant="outline" size="sm">
+                                      View Votes
+                                    </Button>
+                                    <Button variant="ghost" size="sm">
+                                      Finalize
+                                    </Button>
+                                  </>
+                                )}
                               </div>
                             </div>
-                            <div className="text-sm">{team.members?.length || 0}/{team.totalMembers}</div>
-                            <div className="text-sm">{team.votesCast}/{team.totalMembers}</div>
-                            <div>
-                              <Badge 
-                                variant={team.votingPercentage === 100 ? "default" : "outline"} 
-                                className="text-xs"
-                              >
-                                {team.votingPercentage === 100 ? "Complete" : "In Progress"}
-                              </Badge>
-                            </div>
-                            <div className="flex justify-end gap-2">
-                              {isAdmin && (
-                                <>
-                                  <Button variant="outline" size="sm">
-                                    View Votes
-                                  </Button>
-                                  <Button variant="ghost" size="sm">
-                                    Finalize
-                                  </Button>
-                                </>
-                              )}
-                            </div>
+                          ))
+                        ) : (
+                          <div className="p-4 text-center text-muted-foreground">
+                            <p>No teams are currently in the captain voting process</p>
+                            <p className="text-xs mt-2">Teams without captains will appear here when they have members.</p>
                           </div>
-                        ))
-                      ) : (
-                        <div className="p-4 text-center text-muted-foreground">
-                          <p>No teams are currently in the captain voting process</p>
-                          <p className="text-xs mt-2">Teams without captains will appear here when they have members.</p>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>

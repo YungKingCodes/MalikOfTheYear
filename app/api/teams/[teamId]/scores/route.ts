@@ -107,12 +107,12 @@ export async function GET(
         peerScoreAvg = peerScoreSum / memberPeerRatings.length
       }
       
-      // Calculate final score - weight self-assessment at 60% and peer ratings at 40%
+      // Calculate final score - weight self-assessment at 40% and peer ratings at 60%
       let finalScore = member.proficiencyScore || 0
       
       if (memberSelfScores.length > 0 || memberPeerRatings.length > 0) {
         if (memberSelfScores.length > 0 && memberPeerRatings.length > 0) {
-          finalScore = Math.round(selfScoreAvg * 0.6 + peerScoreAvg * 0.4)
+          finalScore = Math.round(selfScoreAvg * 0.4 + peerScoreAvg * 0.6)
         } else if (memberSelfScores.length > 0) {
           finalScore = Math.round(selfScoreAvg)
         } else if (memberPeerRatings.length > 0) {

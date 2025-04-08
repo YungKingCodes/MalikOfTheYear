@@ -7,15 +7,50 @@ export async function GET() {
       orderBy: {
         year: "desc"
       },
-      select: {
-        id: true,
-        name: true,
-        year: true,
-        status: true
+      include: {
+        teams: {
+          include: {
+            members: true
+          }
+        }
       }
     })
 
-    return NextResponse.json(competitions)
+    // Get winner and goat information separately
+    const competitionsWithDetails = await Promise.all(competitions.map(async (comp) => {
+      let winnerTeam = null
+      let goatUser = null
+
+      if (comp.winnerId) {
+        winnerTeam = await db.team.findUnique({
+          where: { id: comp.winnerId },
+          select: { name: true }
+        })
+      }
+
+      if (comp.goatId) {
+        goatUser = await db.user.findUnique({
+          where: { id: comp.goatId },
+          select: { name: true }
+        })
+      }
+
+      return {
+        id: comp.id,
+        name: comp.name,
+        year: comp.year,
+        status: comp.status,
+        startDate: comp.startDate,
+        endDate: comp.endDate,
+        description: comp.description,
+        teams: comp.teams.length,
+        totalPlayers: comp.teams.reduce((sum: number, team: any) => sum + team.members.length, 0),
+        winnerTeam: winnerTeam?.name || null,
+        goat: goatUser?.name || null
+      }
+    }))
+
+    return NextResponse.json(competitionsWithDetails)
   } catch (error) {
     console.error("Error fetching competitions:", error)
     return NextResponse.json(

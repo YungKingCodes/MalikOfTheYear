@@ -667,4 +667,22 @@ export async function isUserRegisteredForCompetition(competitionId: string) {
     console.error("Error checking competition registration:", error)
     return false
   }
+}
+
+/**
+ * Get the count of registered users for a competition
+ */
+export async function getCompetitionRegisteredUsersCount(competitionId: string) {
+  try {
+    const count = await db.userCompetition.count({
+      where: {
+        competitionId,
+        status: "registered"
+      }
+    })
+    return count
+  } catch (error) {
+    console.error('Failed to fetch registered users count:', error)
+    return 0
+  }
 } 

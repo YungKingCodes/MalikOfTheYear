@@ -957,17 +957,17 @@ export async function createTeams(competitionId: string, numberOfTeams: number) 
       let finalScore = 0
       
       if (selfScore) {
-        // Self-assessment: 60% weight
+        // Self-assessment: 40% weight
         const selfScoreValue = (selfScore.technicalScore + selfScore.tacticalScore + 
                               selfScore.physicalScore + selfScore.mentalScore) / 4
-        finalScore += selfScoreValue * 0.6
+        finalScore += selfScoreValue * 0.4
       }
       
       if (peerRatingsForPlayer.length > 0) {
-        // Peer ratings: 40% weight
+        // Peer ratings: 60% weight
         const avgPeerRating = peerRatingsForPlayer.reduce((sum, rating) => sum + rating.score, 0) / 
                             peerRatingsForPlayer.length
-        finalScore += avgPeerRating * 0.4
+        finalScore += avgPeerRating * 0.6
       }
       
       // If no scores are available, assign a default value

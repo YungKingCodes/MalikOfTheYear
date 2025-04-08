@@ -188,7 +188,7 @@ export default function TeamsAdminPage() {
 
   if (!competitions.length) {
     return (
-      <div className="px-6 py-10">
+      <div className="px-4 md:px-6 py-6 md:py-10">
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>No Competitions Available</AlertTitle>
@@ -196,7 +196,7 @@ export default function TeamsAdminPage() {
             There are no competitions to manage. Please create a competition first.
           </AlertDescription>
         </Alert>
-        <div className="mt-6 flex justify-center">
+        <div className="mt-4 md:mt-6 flex justify-center">
           <Button asChild>
             <Link href="/admin/competitions/new">Create New Competition</Link>
           </Button>
@@ -206,213 +206,139 @@ export default function TeamsAdminPage() {
   }
 
   return (
-    <div className="p-6">
-      <div className="flex items-center justify-between">
+    <div className="p-4 md:p-6">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Teams</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Teams</h1>
+          <p className="text-sm md:text-base text-muted-foreground">
             Manage teams for competitions
           </p>
         </div>
-        <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={handleCreateClick}>
-              <Plus className="mr-2 h-4 w-4" />
-              Create Team
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Create New Team</DialogTitle>
-              <DialogDescription>
-                Add a new team to a competition.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="select-competition">Competition</Label>
-                <Select 
-                  value={newTeamCompetitionId} 
-                  onValueChange={setNewTeamCompetitionId}
-                >
-                  <SelectTrigger id="select-competition">
-                    <SelectValue placeholder="Select a competition" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {competitions.map((competition) => (
-                      <SelectItem key={competition.id} value={competition.id}>
-                        {competition.name} {competition.status === "active" && "(Active)"}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="team-name">Team Name</Label>
-                <Input 
-                  id="team-name" 
-                  placeholder="Enter team name" 
-                  value={newTeamName}
-                  onChange={(e) => setNewTeamName(e.target.value)}
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => setCreateDialogOpen(false)}
-                disabled={isCreating}
-              >
-                Cancel
-              </Button>
-              <Button 
-                onClick={handleCreateTeam}
-                disabled={isCreating}
-              >
-                {isCreating ? "Creating..." : "Create Team"}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </div>
-
-      <div className="my-6">
-        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between mb-4">
-          <div className="w-full md:w-80">
-            <Label htmlFor="filter-competition">View teams by competition</Label>
-            <Select 
-              value={selectedCompetitionId} 
-              onValueChange={handleCompetitionChange}
-            >
-              <SelectTrigger id="filter-competition" className="w-full">
-                <SelectValue placeholder="Select a competition" />
-              </SelectTrigger>
-              <SelectContent>
-                {competitions.map((competition) => (
-                  <SelectItem key={competition.id} value={competition.id}>
-                    {competition.name} {competition.status === "active" && "(Active)"}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          
-          <div className="flex items-center space-x-2">
-            <Switch
-              id="show-scores"
-              checked={showPlayerScores}
-              onCheckedChange={handleTogglePlayerScores}
-            />
-            <Label htmlFor="show-scores" className="cursor-pointer">Show Player Scores</Label>
-          </div>
+        <div className="flex flex-col sm:flex-row gap-2">
+          <Select
+            value={selectedCompetitionId}
+            onValueChange={handleCompetitionChange}
+          >
+            <SelectTrigger className="w-full sm:w-[200px]">
+              <SelectValue placeholder="Select Competition" />
+            </SelectTrigger>
+            <SelectContent>
+              {competitions.map((competition) => (
+                <SelectItem key={competition.id} value={competition.id}>
+                  {competition.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button onClick={handleCreateClick}>
+            <Plus className="h-4 w-4 mr-2" />
+            Create Team
+          </Button>
         </div>
-        <Separator />
       </div>
 
-      {loading ? (
-        <div className="h-64 bg-muted animate-pulse rounded-md"></div>
-      ) : (
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              Teams for {competitions.find(comp => comp.id === selectedCompetitionId)?.name || "Selected Competition"}
-            </CardTitle>
-            <CardDescription>
-              All teams participating in this competition.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {teams.length === 0 ? (
-              <div className="py-8 text-center">
-                <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-muted mb-4">
-                  <Users className="h-6 w-6 text-muted-foreground" />
-                </div>
-                <h3 className="text-lg font-medium">No teams yet</h3>
-                <p className="text-sm text-muted-foreground mt-1 mb-4">
-                  Get started by creating a new team for this competition.
-                </p>
-                <Button 
-                  variant="outline" 
-                  onClick={handleCreateClick}
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  Create Team
-                </Button>
-              </div>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Members</TableHead>
-                    <TableHead>Captain</TableHead>
-                    <TableHead>Team Score</TableHead>
-                    {showPlayerScores && (
-                      <TableHead>Player Avg. Score</TableHead>
-                    )}
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {teams.map((team) => (
-                    <TableRow key={team.id}>
-                      <TableCell className="font-medium">{team.name}</TableCell>
-                      <TableCell>{team.memberCount || team.memberIds?.length || 0}</TableCell>
-                      <TableCell>
-                        {team.captainId ? (
-                          <Badge variant="outline" className="bg-green-50 text-green-700 hover:bg-green-50">
-                            {team.captain?.name || "Assigned"}
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="bg-amber-50 text-amber-700 hover:bg-amber-50">
-                            Not Assigned
-                          </Badge>
-                        )}
-                      </TableCell>
-                      <TableCell>{team.score}</TableCell>
-                      {showPlayerScores && (
-                        <TableCell>
-                          {team.averagePlayerScore !== undefined ? (
-                            <Badge variant="secondary" className="font-mono">
-                              {team.averagePlayerScore}
-                            </Badge>
-                          ) : (
-                            <span className="text-muted-foreground text-sm">No data</span>
-                          )}
-                        </TableCell>
-                      )}
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button variant="outline" size="icon" asChild>
-                            <Link href={`/admin/teams/${team.id}/members`}>
-                              <UserPlus className="h-4 w-4" />
-                            </Link>
-                          </Button>
-                          <Button variant="outline" size="icon" asChild>
-                            <Link href={`/admin/teams/${team.id}`}>
-                              <Edit className="h-4 w-4" />
-                            </Link>
-                          </Button>
-                          <Button variant="outline" size="icon" asChild>
-                            <Link href={`/admin/teams/swap?teamId=${team.id}`}>
-                              <Users className="h-4 w-4" />
-                            </Link>
-                          </Button>
-                          <Button variant="ghost" size="icon" className="text-primary" asChild>
-                            <Link href={`/admin/teams/${team.id}`}>
-                              <ChevronRight className="h-4 w-4" />
-                            </Link>
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
+      <Separator className="my-4 md:my-6" />
+
+      <div className="overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-[200px]">Team Name</TableHead>
+              <TableHead>Members</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {teams.map((team) => (
+              <TableRow key={team.id}>
+                <TableCell className="font-medium">{team.name}</TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-2">
+                    <Users className="h-4 w-4 text-muted-foreground" />
+                    <span>{team.members.length} members</span>
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <Badge variant={team.status === "active" ? "default" : "secondary"}>
+                    {team.status}
+                  </Badge>
+                </TableCell>
+                <TableCell className="text-right">
+                  <div className="flex justify-end gap-2">
+                    <Button variant="ghost" size="icon" asChild>
+                      <Link href={`/admin/teams/${team.id}`}>
+                        <ChevronRight className="h-4 w-4" />
+                      </Link>
+                    </Button>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+
+      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+        <DialogTrigger asChild>
+          <Button onClick={handleCreateClick}>
+            <Plus className="mr-2 h-4 w-4" />
+            Create Team
+          </Button>
+        </DialogTrigger>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create New Team</DialogTitle>
+            <DialogDescription>
+              Add a new team to a competition.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="select-competition">Competition</Label>
+              <Select 
+                value={newTeamCompetitionId} 
+                onValueChange={setNewTeamCompetitionId}
+              >
+                <SelectTrigger id="select-competition">
+                  <SelectValue placeholder="Select a competition" />
+                </SelectTrigger>
+                <SelectContent>
+                  {competitions.map((competition) => (
+                    <SelectItem key={competition.id} value={competition.id}>
+                      {competition.name} {competition.status === "active" && "(Active)"}
+                    </SelectItem>
                   ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
-      )}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="team-name">Team Name</Label>
+              <Input 
+                id="team-name" 
+                placeholder="Enter team name" 
+                value={newTeamName}
+                onChange={(e) => setNewTeamName(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setCreateDialogOpen(false)}
+              disabled={isCreating}
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleCreateTeam}
+              disabled={isCreating}
+            >
+              {isCreating ? "Creating..." : "Create Team"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 } 

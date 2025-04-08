@@ -186,15 +186,15 @@ export default function SettingsAdminPage() {
   }
 
   return (
-    <div className="p-6">
-      <div className="flex items-center justify-between">
+    <div className="p-4 md:p-6">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">System Settings</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">System Settings</h1>
+          <p className="text-sm md:text-base text-muted-foreground">
             Configure application-wide settings
           </p>
         </div>
-        <Button onClick={handleSaveSettings} disabled={saving}>
+        <Button onClick={handleSaveSettings} disabled={saving} className="w-full md:w-auto">
           {saving ? (
             <>Saving...</>
           ) : (
@@ -206,17 +206,17 @@ export default function SettingsAdminPage() {
         </Button>
       </div>
 
-      <Separator className="my-6" />
+      <Separator className="my-4 md:my-6" />
 
       <Tabs defaultValue="general" value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="mb-6">
+        <TabsList className="w-full md:w-auto mb-4 md:mb-6">
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="registration">Registration</TabsTrigger>
           <TabsTrigger value="competition">Competition</TabsTrigger>
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
         </TabsList>
         
-        <TabsContent value="general" className="space-y-6">
+        <TabsContent value="general" className="space-y-4 md:space-y-6">
           <Card>
             <CardHeader>
               <CardTitle>General Settings</CardTitle>
@@ -224,7 +224,7 @@ export default function SettingsAdminPage() {
                 Configure basic system settings
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
+            <CardContent className="space-y-4 md:space-y-6">
               <div className="grid gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="siteTitle">Site Title</Label>
@@ -247,10 +247,10 @@ export default function SettingsAdminPage() {
                   />
                 </div>
                 
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
                   <div className="space-y-0.5">
                     <Label htmlFor="maintenanceMode">Maintenance Mode</Label>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-xs md:text-sm text-muted-foreground">
                       Put the site in maintenance mode to prevent user access
                     </p>
                   </div>
@@ -265,7 +265,7 @@ export default function SettingsAdminPage() {
           </Card>
         </TabsContent>
         
-        <TabsContent value="registration" className="space-y-6">
+        <TabsContent value="registration" className="space-y-4 md:space-y-6">
           <Card>
             <CardHeader>
               <CardTitle>Registration Settings</CardTitle>
@@ -273,11 +273,11 @@ export default function SettingsAdminPage() {
                 Configure user and team registration settings
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="flex items-center justify-between">
+            <CardContent className="space-y-4 md:space-y-6">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
                 <div className="space-y-0.5">
                   <Label htmlFor="registrationOpen">Registration Open</Label>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-xs md:text-sm text-muted-foreground">
                     Allow new user registrations
                   </p>
                 </div>
@@ -288,10 +288,10 @@ export default function SettingsAdminPage() {
                 />
               </div>
               
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
                 <div className="space-y-0.5">
                   <Label htmlFor="allowTeamRegistration">Allow Team Registration</Label>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-xs md:text-sm text-muted-foreground">
                     Allow users to create and join teams
                   </p>
                 </div>
@@ -317,7 +317,7 @@ export default function SettingsAdminPage() {
           </Card>
         </TabsContent>
         
-        <TabsContent value="competition" className="space-y-6">
+        <TabsContent value="competition" className="space-y-4 md:space-y-6">
           <Card>
             <CardHeader>
               <CardTitle>Competition Settings</CardTitle>
@@ -325,11 +325,11 @@ export default function SettingsAdminPage() {
                 Configure competition-related settings
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="flex items-center justify-between">
+            <CardContent className="space-y-4 md:space-y-6">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
                 <div className="space-y-0.5">
                   <Label htmlFor="displayScoreboard">Display Scoreboard</Label>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-xs md:text-sm text-muted-foreground">
                     Show the public scoreboard to all users
                   </p>
                 </div>
@@ -357,7 +357,7 @@ export default function SettingsAdminPage() {
           </Card>
         </TabsContent>
         
-        <TabsContent value="notifications" className="space-y-6">
+        <TabsContent value="notifications" className="space-y-4 md:space-y-6">
           <Card>
             <CardHeader>
               <CardTitle>Notification Settings</CardTitle>
@@ -365,11 +365,11 @@ export default function SettingsAdminPage() {
                 Configure system notifications
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="flex items-center justify-between">
+            <CardContent className="space-y-4 md:space-y-6">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
                 <div className="space-y-0.5">
                   <Label htmlFor="emailNotifications">Email Notifications</Label>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-xs md:text-sm text-muted-foreground">
                     Send email notifications for important events
                   </p>
                 </div>

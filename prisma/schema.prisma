@@ -80,6 +80,7 @@ model User {
   
   // New relation for competition registrations
   competitions     UserCompetition[]
+  goatCompetitions Competition[] @relation("CompetitionGOAT")
 }
 
 model Team {
@@ -95,9 +96,10 @@ model Team {
   
   // Relations
   captain       User?        @relation("TeamCaptain", fields: [captainId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  competition   Competition  @relation(fields: [competitionId], references: [id])
+  competition   Competition  @relation(fields: [competitionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   members       User[]       @relation("TeamMembers")
   gameParticipations GameParticipation[]
+  wonCompetitions Competition[] @relation("CompetitionWinner")
 }
 
 model Competition {
@@ -112,6 +114,7 @@ model Competition {
   goatId      String?     @db.ObjectId
   teamIds     String[]    @db.ObjectId
   gameIds     String[]    @db.ObjectId
+  prize       String?
   createdAt   DateTime    @default(now())
   
   // Relations
@@ -119,9 +122,9 @@ model Competition {
   games       Game[]
   eventManagement EventManagement?
   phases      CompetitionPhase[]
-  
-  // New relation for registered users
   registeredUsers UserCompetition[]
+  winner      Team?      @relation("CompetitionWinner", fields: [winnerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  goat        User?      @relation("CompetitionGOAT", fields: [goatId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 }
 
 model Game {
