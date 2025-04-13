@@ -184,7 +184,17 @@ export async function getUserDashboardProfile() {
       throw new Error("No active competition found")
     }
     
-    // Get team rank if user has a team
+    // Get user competition data to retrieve proficiency
+    const userCompetition = await db.userCompetition.findUnique({
+      where: { 
+        userId_competitionId: {
+          userId: user.id,
+          competitionId: activeCompetition.id
+        }
+      }
+    })
+    
+    // Team rank calculation
     let teamRank = null
     if (user.team) {
       const teams = await db.team.findMany({
@@ -203,7 +213,7 @@ export async function getUserDashboardProfile() {
       email: user.email,
       image: user.image,
       role: user.role,
-      score: user.proficiencyScore || 0,
+      score: userCompetition?.proficiencyScore || 0,
       team: user.team ? {
         id: user.team.id,
         name: user.team.name,
@@ -212,7 +222,7 @@ export async function getUserDashboardProfile() {
         captainId: user.team.captainId,
         isCaptain: user.id === user.team.captainId
       } : null,
-      proficiencies: user.proficiencies || [],
+      proficiencies: userCompetition?.proficiencies || [],
       stats: userStats
     }
   } catch (error) {
@@ -596,9 +606,13 @@ export async function getCompetitionTimeline(competitionId?: string) {
 function getPhaseStatus(startDate: Date, endDate: Date): string {
   const now = new Date();
   
+  // Set end date to 11:59:59 PM
+  const adjustedEndDate = new Date(endDate);
+  adjustedEndDate.setHours(23, 59, 59, 999);
+  
   if (now < startDate) {
     return "inactive";
-  } else if (now >= startDate && now <= endDate) {
+  } else if (now >= startDate && now <= adjustedEndDate) {
     return "in-progress";
   } else {
     return "completed";
@@ -783,45 +797,143 @@ export async function getPlayerStats(limit = 5) {
       return []
     }
     
-    // Get top players by proficiency score
-    const topPlayers = await db.user.findMany({
+    // Get top players by proficiency score - now using the UserCompetition model
+    const topPlayers = await db.userCompetition.findMany({
       where: { 
-        role: { in: ["player", "captain"] }
+        competitionId: activeCompetition.id,
+        user: {
+          role: { in: ["player", "captain"] }
+        }
       },
       orderBy: { 
         proficiencyScore: "desc" 
       },
       take: limit,
-      select: {
-        id: true,
-        name: true,
-        image: true,
-        proficiencyScore: true,
-        teamId: true,
-        position: true,
-        titles: true,
-        team: {
-          select: { 
+      include: {
+        user: {
+          select: {
+            id: true,
             name: true,
-            id: true
+            image: true,
+            teamId: true,
+            position: true,
+            titles: true,
+            team: {
+              select: { 
+                name: true,
+                id: true
+              }
+            }
           }
         }
       }
     })
     
     // Format the response to include team names
-    return topPlayers.map(player => ({
-      _id: player.id,
-      name: player.name,
-      teamId: player.teamId,
-      team: player.team?.name,
-      proficiencyScore: player.proficiencyScore || 0,
-      titles: player.titles || [],
-      position: player.position || "Member",
-      image: player.image
+    return topPlayers.map(playerComp => ({
+      _id: playerComp.user.id,
+      name: playerComp.user.name,
+      teamId: playerComp.user.teamId,
+      team: playerComp.user.team?.name,
+      proficiencyScore: playerComp.proficiencyScore || 0,
+      titles: playerComp.user.titles || [],
+      position: playerComp.user.position || "Member",
+      image: playerComp.user.image
     }))
   } catch (error) {
     console.error("Error fetching player stats:", error)
+    return []
+  }
+}
+
+/**
+ * Get user achievements for the player profile
+ */
+export async function getUserAchievements() {
+  const session = await auth()
+  
+  if (!session?.user?.id) {
+    throw new Error("Unauthorized: You must be logged in to view achievements")
+  }
+  
+  try {
+    // Get the active competition for context
+    const activeCompetition = await db.competition.findFirst({
+      where: { status: "active" }
+    })
+    
+    if (!activeCompetition) {
+      return []
+    }
+    
+    // Get user data
+    const user = await db.user.findUnique({
+      where: { id: session.user.id },
+      include: {
+        team: true,
+        competitions: {
+          where: {
+            competitionId: activeCompetition.id
+          }
+        }
+      }
+    })
+    
+    if (!user) {
+      throw new Error("User not found")
+    }
+    
+    // Mock achievements data - in a real app this would come from a dedicated collection
+    // We're generating mock data based on user properties
+    const achievements = [
+      // Team-related achievements
+      user.team ? {
+        id: "captain-achievement",
+        title: "Team Captain",
+        description: user.team.captainId === user.id ? 
+          "Led your team with distinction throughout the competition" : 
+          "Valuable member of your team",
+        icon: "Trophy",
+        competition: activeCompetition.name,
+        date: new Date().toISOString(),
+        highlight: user.team.captainId === user.id
+      } : null,
+      
+      // Attendance achievement
+      {
+        id: "participation",
+        title: "Active Participant",
+        description: "Participated in multiple competition events",
+        icon: "Star",
+        competition: activeCompetition.name,
+        date: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+      },
+      
+      // Proficiency achievement
+      user.competitions[0]?.proficiencyScore && user.competitions[0].proficiencyScore > 70 ? {
+        id: "high-score",
+        title: "High Performer",
+        description: `Achieved a proficiency score above 70`,
+        icon: "Award",
+        competition: activeCompetition.name,
+        date: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
+        highlight: user.competitions[0].proficiencyScore > 85
+      } : null,
+      
+      // Mock previous achievements from past competitions
+      {
+        id: "previous-comp",
+        title: "Competition Participant",
+        description: "Successfully completed a previous competition",
+        icon: "Medal",
+        competition: `Summer Competition ${new Date().getFullYear() - 1}`,
+        date: new Date(Date.now() - 180 * 24 * 60 * 60 * 1000).toISOString()
+      },
+    ].filter(Boolean) // Remove null values
+    
+    return achievements
+  } catch (error) {
+    console.error("Error fetching user achievements:", error)
     return []
   }
 } 

@@ -250,13 +250,13 @@ export default function TeamsAdminPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {teams.map((team) => (
+            {teams && teams.length > 0 ? teams.map((team) => (
               <TableRow key={team.id}>
                 <TableCell className="font-medium">{team.name}</TableCell>
                 <TableCell>
                   <div className="flex items-center gap-2">
                     <Users className="h-4 w-4 text-muted-foreground" />
-                    <span>{team.members.length} members</span>
+                    <span>{team.members?.length || 0} members</span>
                   </div>
                 </TableCell>
                 <TableCell>
@@ -274,7 +274,13 @@ export default function TeamsAdminPage() {
                   </div>
                 </TableCell>
               </TableRow>
-            ))}
+            )) : (
+              <TableRow>
+                <TableCell colSpan={4} className="text-center py-6 text-muted-foreground">
+                  No teams found for this competition.
+                </TableCell>
+              </TableRow>
+            )}
           </TableBody>
         </Table>
       </div>

@@ -49,7 +49,11 @@ export async function POST(request: Request) {
       )
     }
 
+    // Add logging before the status check
+    console.log(`[API /player-score/others] Checking status for phaseId: ${phaseId}. Retrieved phase object:`, JSON.stringify(phase));
+
     if (phase.status !== "in-progress") {
+      console.error(`[API /player-score/others] Phase status check failed for phaseId: ${phaseId}. Status found: '${phase.status}'`); // Log the failure
       return NextResponse.json(
         { error: "This phase is not currently active" },
         { status: 400 }

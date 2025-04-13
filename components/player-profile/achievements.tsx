@@ -5,7 +5,7 @@ import type React from "react"
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Trophy, Medal, Star, Award, Crown } from "lucide-react"
-import { getUserAchievements } from "@/app/actions/users"
+import { getUserAchievements } from '@/app/actions/dashboard-stats'
 
 interface Achievement {
   id: string

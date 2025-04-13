@@ -60,10 +60,8 @@ model User {
   password         String?     // Hashed password for email/password login
   role             String      @default("player") // "admin" | "captain" | "player" | "guest"
   teamId           String?     @db.ObjectId
-  proficiencyScore Int?        @default(0)
   titles           String[]    @default([])
   position         String?     @default("Member")
-  proficiencies    Json[]      @default([])
   createdAt        DateTime    @default(now())
   
   // Relations
@@ -290,6 +288,9 @@ model UserCompetition {
   competitionId String     @db.ObjectId
   status        String     @default("registered") // "registered", "active", "completed"
   registeredAt  DateTime   @default(now())
+  finalCompetitionScore Int? // Stores the calculated final score for this user in this competition
+  proficiencyScore Int?    @default(0)
+  proficiencies    Json[]  @default([])
   
   // Relations
   user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)

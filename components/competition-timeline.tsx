@@ -1,8 +1,8 @@
 "use client"
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { CalendarDays, CheckCircle, Clock, Target, Crown, UserPlus, Check } from "lucide-react"
+import { CalendarDays, CheckCircle, Clock, Target, Crown, UserPlus, Check, Edit } from "lucide-react"
 import { useState, useEffect } from "react"
 import { getCompetitionTimeline } from "@/app/actions/dashboard-stats"
 import { isUserRegisteredForCompetition } from "@/app/actions/competitions"
@@ -23,6 +23,14 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
 import Link from "next/link"
+import { getExistingPlayerRatingsForPhase, getPlayerRatingDetails } from "@/app/actions/player-scores"
+
+interface Player {
+  id: string;
+  name: string | null;
+  image: string | null;
+  // Add other fields if needed from the API response
+}
 
 interface TimelinePhase {
   id: string
@@ -70,15 +78,19 @@ const scoringCategories = [
 ];
 
 // Player scoring button component
-function PlayerScoringButton({ phaseId }: { phaseId: string }) {
+function PlayerScoringButton({ phaseId, competitionId }: { phaseId: string; competitionId: string }) {
   const [open, setOpen] = useState(false)
   const [activeTab, setActiveTab] = useState("self")
-  const [players, setPlayers] = useState<any[]>([])
+  const [players, setPlayers] = useState<Player[]>([])
   const [selfScores, setSelfScores] = useState<Record<string, number>>({})
-  const [otherScores, setOtherScores] = useState<Record<string, Record<string, number>>>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
   const [playersLoading, setPlayersLoading] = useState(false)
+  const [existingRatings, setExistingRatings] = useState<Set<string>>(new Set());
+  const [editingPlayerId, setEditingPlayerId] = useState<string | null>(null);
+  const [editingScores, setEditingScores] = useState<Record<string, number>>({});
+  const [editingStatus, setEditingStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [editingError, setEditingError] = useState<string | null>(null);
   
   // Initialize scores for all categories
   useEffect(() => {
@@ -89,67 +101,50 @@ function PlayerScoringButton({ phaseId }: { phaseId: string }) {
     setSelfScores(initialScores);
   }, []);
   
-  // Fetch all players when opened
+  // Fetch players and existing ratings when modal opens
   useEffect(() => {
-    async function fetchPlayers() {
-      if (open && activeTab === "others") {
+    async function fetchData() {
+      if (open && competitionId && phaseId) {
+        setPlayersLoading(true);
+        setStatus('idle');
+        setEditingPlayerId(null);
+        setEditingScores({});
+        setEditingStatus('idle');
+        setEditingError(null);
         try {
-          setPlayersLoading(true);
-          const response = await fetch('/api/players', {
-            method: 'GET',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-          });
-          
-          if (!response.ok) throw new Error('Failed to fetch players');
-          
-          const data = await response.json();
-          setPlayers(data.players || []);
-          
-          // Initialize scores for all players
-          const initialPlayerScores: Record<string, Record<string, number>> = {};
-          if (data.players && data.players.length > 0) {
-            data.players.forEach((player: any) => {
-              initialPlayerScores[player.id] = {};
-              scoringCategories.forEach(category => {
-                initialPlayerScores[player.id][category.id] = 3; // Default to middle value (3 out of 5)
-              });
-            });
-          }
-          setOtherScores(initialPlayerScores);
+          const playersResponse = await fetch(`/api/players?competitionId=${competitionId}`);
+          if (!playersResponse.ok) throw new Error('Failed to fetch players');
+          const playersData = await playersResponse.json();
+          setPlayers(playersData.players || []);
+
+          const ratingsSet = await getExistingPlayerRatingsForPhase(phaseId);
+          setExistingRatings(ratingsSet);
+
         } catch (error) {
-          console.error('Error fetching players:', error);
+          console.error('Error fetching data for scoring modal:', error);
         } finally {
           setPlayersLoading(false);
         }
       }
     }
-    
-    fetchPlayers();
-  }, [open, activeTab]);
+    if (!open) {
+        setStatus('idle');
+        setEditingPlayerId(null);
+    }
+    fetchData();
+  }, [open, competitionId, phaseId]);
   
   const handleSelfScoreChange = (categoryId: string, value: number[]) => {
     setSelfScores(prev => ({
       ...prev,
       [categoryId]: value[0]
     }));
-  };
-  
-  const handleOtherScoreChange = (playerId: string, categoryId: string, value: number[]) => {
-    setOtherScores(prev => ({
-      ...prev,
-      [playerId]: {
-        ...prev[playerId],
-        [categoryId]: value[0]
-      }
-    }));
+    setStatus('idle'); // Reset status if user changes score after submission
   };
   
   const submitSelfScores = async () => {
     setIsSubmitting(true);
     setStatus('loading');
-    
     try {
       const response = await fetch('/api/player-score/self', {
         method: 'POST',
@@ -161,11 +156,12 @@ function PlayerScoringButton({ phaseId }: { phaseId: string }) {
           scores: selfScores
         }),
       });
-      
-      if (!response.ok) throw new Error('Failed to submit self scores');
-      
+      if (!response.ok) {
+         const errorBody = await response.text();
+         console.error("Self-score submission error:", errorBody);
+         throw new Error('Failed to submit self scores');
+      }
       setStatus('success');
-      setTimeout(() => setOpen(false), 1500);
     } catch (error) {
       console.error('Error submitting self scores:', error);
       setStatus('error');
@@ -174,39 +170,82 @@ function PlayerScoringButton({ phaseId }: { phaseId: string }) {
     }
   };
   
-  const submitOtherScores = async () => {
+  // Function to handle starting the edit process for a player
+  const handleEditPlayer = async (playerId: string) => {
+    setEditingPlayerId(playerId);
+    setEditingStatus('loading');
+    setEditingError(null);
+    try {
+      const ratingData = await getPlayerRatingDetails(phaseId, playerId);
+      const initialScores: Record<string, number> = {};
+      scoringCategories.forEach(category => {
+        initialScores[category.id] = 3; // Default
+      });
+
+      if (ratingData && ratingData.scores && typeof ratingData.scores === 'object' && ratingData.scores !== null) {
+        const existingScores = ratingData.scores as Record<string, unknown>; 
+        for (const categoryId of Object.keys(existingScores)) {
+          if (initialScores.hasOwnProperty(categoryId)) {
+            const scoreValue = existingScores[categoryId];
+            if (typeof scoreValue === 'number') {
+              initialScores[categoryId] = scoreValue;
+            }
+          }
+        }
+      }
+      setEditingScores(initialScores);
+      setEditingStatus('idle');
+    } catch (err) {
+      console.error("Error fetching details for edit:", err);
+      setEditingError("Could not load existing scores.");
+      setEditingStatus('error');
+      // Don't clear editingPlayerId, show error inline
+    }
+  };
+
+  // Function to handle score changes while editing
+  const handleEditingScoreChange = (categoryId: string, value: number[]) => {
+    setEditingScores(prev => ({ ...prev, [categoryId]: value[0] }));
+    setEditingStatus('idle'); // Reset status if changing after submit attempt
+  };
+
+  // Function to submit scores for the player being edited
+  const submitEditedScores = async () => {
+    if (!editingPlayerId) return;
+
     setIsSubmitting(true);
-    setStatus('loading');
-    
+    setEditingStatus('loading');
+    setEditingError(null);
     try {
       const response = await fetch('/api/player-score/others', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           phaseId,
-          scores: otherScores
+          scores: { [editingPlayerId]: editingScores } // API expects scores keyed by player ID
         }),
       });
-      
-      if (!response.ok) throw new Error('Failed to submit other player scores');
-      
-      setStatus('success');
-      setTimeout(() => setOpen(false), 1500);
-    } catch (error) {
-      console.error('Error submitting other player scores:', error);
-      setStatus('error');
+
+      if (!response.ok) {
+        const errorBody = await response.text();
+        console.error("Edited score submission error:", errorBody);
+        throw new Error('Failed to submit scores. Status: ' + response.status);
+      }
+      setEditingStatus('success');
+      // Update the checkmark in the list
+      setExistingRatings(prev => new Set(prev).add(editingPlayerId));
+      // Optionally close the editing section after a delay
+      // setTimeout(() => setEditingPlayerId(null), 1500);
+    } catch (err: any) {
+      console.error('Error submitting edited scores:', err);
+      setEditingError(err.message || "Failed to save scores. Please try again.");
+      setEditingStatus('error');
     } finally {
       setIsSubmitting(false);
     }
   };
-  
-  // Function that gets the score for player's category
-  const getPlayerCategoryScore = (playerId: string, categoryId: string): number => {
-    return otherScores[playerId]?.[categoryId] || 3;
-  };
-  
+
+  // Explicitly return JSX.Element
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -216,124 +255,174 @@ function PlayerScoringButton({ phaseId }: { phaseId: string }) {
         </Button>
       </DialogTrigger>
       
-      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl w-[95vw] h-[85vh]">
         <DialogHeader>
           <DialogTitle>Player Scoring</DialogTitle>
           <DialogDescription>
-            Rate players based on different skill categories from 1 to 5
+            Rate yourself and other players based on different skill categories.
           </DialogDescription>
         </DialogHeader>
         
-        <Tabs defaultValue="self" value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <Tabs defaultValue="self" value={activeTab} onValueChange={(value) => { setActiveTab(value); setEditingPlayerId(null); }} className="mt-4">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="self">Score Yourself</TabsTrigger>
             <TabsTrigger value="others">Score Others</TabsTrigger>
           </TabsList>
           
-          <TabsContent value="self" className="space-y-4 mt-4">
+          <TabsContent value="self" className="mt-4 h-[calc(100%-3rem)]">
             <div className="text-sm text-muted-foreground mb-4">
               Rate yourself on the following categories from 1 (lowest) to 5 (highest). Be honest in your assessments.
             </div>
             
-            <div className="space-y-6">
-              {scoringCategories.map(category => (
-                <div key={category.id} className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="font-medium">{category.name}</h4>
-                      <p className="text-xs text-muted-foreground">{category.description}</p>
+            <ScrollArea className="h-[calc(100%-8rem)] pr-4">
+              <div className="space-y-6">
+                {scoringCategories.map(category => (
+                  <div key={category.id} className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="font-medium">{category.name}</h4>
+                        <p className="text-xs text-muted-foreground">{category.description}</p>
+                      </div>
+                      <span className="text-sm font-medium">{selfScores[category.id] || 3}/5</span>
                     </div>
-                    <span className="text-sm font-medium">{selfScores[category.id] || 3}/5</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground">1</span>
-                    <Slider
-                      value={[selfScores[category.id] || 3]}
-                      min={1}
-                      max={5}
-                      step={1}
-                      onValueChange={(value) => handleSelfScoreChange(category.id, value)}
-                    />
-                    <span className="text-xs text-muted-foreground">5</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-            
-            <DialogFooter className="pt-4">
-              <Button 
-                onClick={submitSelfScores} 
-                disabled={isSubmitting}
-                className="w-full"
-              >
-                {status === 'loading' ? 'Submitting...' : 
-                 status === 'success' ? 'Submitted!' : 
-                 status === 'error' ? 'Try Again' : 'Submit Self Scores'}
-              </Button>
-            </DialogFooter>
-          </TabsContent>
-          
-          <TabsContent value="others" className="mt-4">
-            <div className="text-sm text-muted-foreground mb-4">
-              Rate other players on the following categories from 1 (lowest) to 5 (highest). Be fair and objective in your assessments.
-            </div>
-            
-            {playersLoading ? (
-              <div className="py-8 text-center text-muted-foreground">
-                Loading players...
-              </div>
-            ) : players.length === 0 ? (
-              <div className="py-8 text-center text-muted-foreground">
-                No other players available to rate.
-              </div>
-            ) : (
-              <div className="space-y-8">
-                {players.map(player => (
-                  <div key={player.id} className="border rounded-lg p-4">
-                    <h3 className="font-medium text-lg mb-4">{player.name}</h3>
-                    
-                    <div className="space-y-6">
-                      {scoringCategories.map(category => (
-                        <div key={`${player.id}-${category.id}`} className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <h4 className="font-medium">{category.name}</h4>
-                              <p className="text-xs text-muted-foreground">{category.description}</p>
-                            </div>
-                            <span className="text-sm font-medium">
-                              {getPlayerCategoryScore(player.id, category.id)}/5
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs text-muted-foreground">1</span>
-                            <Slider
-                              value={[getPlayerCategoryScore(player.id, category.id)]}
-                              min={1}
-                              max={5}
-                              step={1}
-                              onValueChange={(value) => handleOtherScoreChange(player.id, category.id, value)}
-                            />
-                            <span className="text-xs text-muted-foreground">5</span>
-                          </div>
-                        </div>
-                      ))}
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">1</span>
+                      <Slider
+                        value={[selfScores[category.id] || 3]}
+                        min={1}
+                        max={5}
+                        step={1}
+                        onValueChange={(value) => handleSelfScoreChange(category.id, value)}
+                        aria-label={`Score for ${category.name}`}
+                      />
+                      <span className="text-xs text-muted-foreground">5</span>
                     </div>
                   </div>
                 ))}
               </div>
-            )}
+            </ScrollArea>
             
-            <DialogFooter className="pt-6">
-              <Button 
-                onClick={submitOtherScores} 
-                disabled={isSubmitting || players.length === 0}
+            <div className="mt-6">
+              <Button
+                onClick={submitSelfScores}
+                disabled={isSubmitting || status === 'success'}
                 className="w-full"
               >
-                {status === 'loading' ? 'Submitting...' : 
-                 status === 'success' ? 'Submitted!' : 
-                 status === 'error' ? 'Try Again' : 'Submit All Ratings'}
+                {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                {isSubmitting ? 'Submitting...' :
+                 status === 'success' ? 'Scores Saved!' :
+                 status === 'error' ? 'Submission Failed - Retry?' : 'Save Self Scores'}
               </Button>
-            </DialogFooter>
+            </div>
+          </TabsContent>
+          
+          <TabsContent value="others" className="mt-4 h-[calc(100%-3rem)]">
+            <div className="text-sm text-muted-foreground mb-4">
+              Select a player to rate or edit their existing rating. A checkmark indicates you have already submitted a score for them in this phase.
+            </div>
+            
+            {playersLoading ? (
+              <div className="flex justify-center items-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                <span className="ml-2 text-muted-foreground">Loading players...</span>
+              </div>
+            ) : players.length === 0 ? (
+              <div className="py-8 text-center text-muted-foreground">
+                No other players registered for this competition.
+              </div>
+            ) : (
+              editingPlayerId ? (
+                <div className="h-[calc(100%-3rem)]">
+                  <Button variant="outline" size="sm" onClick={() => setEditingPlayerId(null)} className="mb-4">
+                      &lt; Back to List
+                  </Button>
+                  
+                  {editingStatus === 'loading' ? (
+                      <div className="flex justify-center items-center py-8"><Loader2 className="h-6 w-6 animate-spin" /></div>
+                  ) : editingStatus === 'error' ? (
+                      <p className="text-red-500 text-center py-4">{editingError || "Error loading scores."}</p>
+                  ) : (
+                    <Card>
+                      <CardHeader>
+                          <CardTitle>Scoring: {players.find(p => p.id === editingPlayerId)?.name}</CardTitle>
+                      </CardHeader>
+                      
+                      <CardContent>
+                        <ScrollArea className="h-[calc(100vh-26rem)] pr-4">
+                          <div className="space-y-6">
+                            {editingError && <p className="text-red-500 text-sm">{editingError}</p>}
+                            {scoringCategories.map(category => (
+                              <div key={category.id} className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                  <div>
+                                    <h4 className="font-medium">{category.name}</h4>
+                                    <p className="text-xs text-muted-foreground">{category.description}</p>
+                                  </div>
+                                  <span className="text-sm font-medium">{editingScores[category.id] || 3}/5</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs text-muted-foreground">1</span>
+                                  <Slider value={[editingScores[category.id] || 3]} min={1} max={5} step={1} onValueChange={(value) => handleEditingScoreChange(category.id, value)} aria-label={`Score for ${category.name}`} disabled={isSubmitting} />
+                                  <span className="text-xs text-muted-foreground">5</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </ScrollArea>
+                      </CardContent>
+                      
+                      <CardFooter className="flex justify-end">
+                          <Button onClick={submitEditedScores} disabled={isSubmitting || editingStatus === 'success'}>
+                              {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                              {isSubmitting ? 'Saving...' : 
+                               editingStatus === 'success' ? 'Score Saved!' : 
+                               'Save Score'}
+                          </Button>
+                      </CardFooter>
+                    </Card>
+                  )}
+                </div>
+              ) : (
+                <ScrollArea className="h-[calc(100%-3rem)]">
+                  <div className="border rounded-md">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Player</TableHead>
+                          <TableHead className="w-[100px] text-center">Status</TableHead>
+                          <TableHead className="w-[80px] text-right">Action</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {players.map((player: Player) => (
+                          <TableRow key={player.id}>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <Avatar className="h-8 w-8">
+                                  <AvatarImage src={player.image ?? undefined} alt={player.name ?? 'Player'} />
+                                  <AvatarFallback>{player.name?.substring(0, 2) || "P"}</AvatarFallback>
+                                </Avatar>
+                                <span className="font-medium">{player.name ?? 'Unknown Player'}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              {existingRatings.has(player.id) && (
+                                <Check className="h-5 w-5 text-green-600 inline-block" aria-label="Already scored"/>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Button variant="ghost" size="icon" onClick={() => handleEditPlayer(player.id)} aria-label={`Score or edit ${player.name}`}>
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </ScrollArea>
+              )
+            )}
           </TabsContent>
         </Tabs>
       </DialogContent>
@@ -439,7 +528,7 @@ function CaptainVotingButton({ phaseId }: { phaseId: string }) {
       setStatus('success');
       setHasVoted(true);
       setVotedCaptain(teamMembers.find(m => m.id === selectedCaptainId));
-      setTimeout(() => setOpen(false), 1500);
+      setTimeout(() => setOpen(false), 1500); // Correct setTimeout usage
     } catch (error) {
       console.error('Error submitting captain vote:', error);
       setStatus('error');
@@ -448,6 +537,7 @@ function CaptainVotingButton({ phaseId }: { phaseId: string }) {
     }
   };
   
+  // Actual JSX for CaptainVotingButton
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -589,8 +679,8 @@ function TeamFormationButton({ phaseId, competitionId }: { phaseId: string, comp
     
     // Make a copy of players and sort by score in descending order
     const sortedPlayers = [...players]
-      .filter(p => p.proficiencyScore !== undefined)
-      .sort((a, b) => (b.proficiencyScore || 0) - (a.proficiencyScore || 0));
+      .filter(p => p.userCompetition && p.userCompetition.proficiencyScore !== undefined)
+      .sort((a, b) => ((b.userCompetition?.proficiencyScore || 0) - (a.userCompetition?.proficiencyScore || 0)));
     
     // Create empty teams
     const teams: any[][] = Array.from({ length: teamCount }, () => []);
@@ -612,7 +702,7 @@ function TeamFormationButton({ phaseId, competitionId }: { phaseId: string, comp
     
     // Calculate team stats
     const teamsWithStats = teams.map(teamPlayers => {
-      const totalScore = teamPlayers.reduce((sum, player) => sum + (player.proficiencyScore || 0), 0);
+      const totalScore = teamPlayers.reduce((sum, player) => sum + (player.userCompetition?.proficiencyScore || 0), 0);
       const avgScore = teamPlayers.length > 0 ? totalScore / teamPlayers.length : 0;
       
       return {
@@ -652,7 +742,7 @@ function TeamFormationButton({ phaseId, competitionId }: { phaseId: string, comp
       }
       
       setStatus('success');
-      setTimeout(() => setOpen(false), 1500);
+      setTimeout(() => setOpen(false), 1500); // Correct setTimeout usage
     } catch (error) {
       console.error('Error saving teams:', error);
       setStatus('error');
@@ -664,6 +754,7 @@ function TeamFormationButton({ phaseId, competitionId }: { phaseId: string, comp
   // If not admin, don't show anything
   if (!isAdmin) return null;
   
+  // Actual JSX for TeamFormationButton
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -774,7 +865,7 @@ function TeamFormationButton({ phaseId, competitionId }: { phaseId: string, comp
                                   <p className="text-sm font-medium truncate">{player.name}</p>
                                 </div>
                                 <div className="text-sm">
-                                  Score: {player.proficiencyScore || 0}
+                                  Score: {player.userCompetition?.proficiencyScore || 0}
                                 </div>
                               </div>
                             ))}
@@ -825,6 +916,32 @@ export function CompetitionTimeline({ competitionId }: { competitionId: string }
         
         if (data) {
           console.log("Timeline data loaded:", data);
+          
+          // Update phase status based on dates if needed
+          if (data.phases && data.phases.length > 0) {
+            const currentDate = new Date();
+            data.phases = data.phases.map(phase => {
+              const startDate = new Date(phase.startDate);
+              const endDate = new Date(phase.endDate);
+              
+              // Set end date to 11:59:59 PM
+              endDate.setHours(23, 59, 59, 999);
+              
+              // Preserve original status from DB, only calculate if needed
+              if (phase.status !== "completed" && phase.status !== "in-progress" && phase.status !== "inactive") {
+                if (currentDate >= startDate && currentDate <= endDate) {
+                  return { ...phase, status: "in-progress" };
+                } else if (currentDate > endDate) {
+                  return { ...phase, status: "completed" };
+                } else {
+                  return { ...phase, status: "inactive" };
+                }
+              }
+              
+              return phase;
+            });
+          }
+          
           setTimelineData(data);
           setError(null);
           
@@ -975,6 +1092,8 @@ export function CompetitionTimeline({ competitionId }: { competitionId: string }
                           month: "short",
                           day: "numeric",
                         })}
+                        {" "}
+                        <span className="font-medium">(ends at 11:59 PM)</span>
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
@@ -985,8 +1104,20 @@ export function CompetitionTimeline({ competitionId }: { competitionId: string }
                       {/* Action buttons based on phase type and status */}
                       {phase.status === "in-progress" && (
                         <div className="flex-shrink-0">
-                          {phase.type === "player_scoring" && <PlayerScoringButton phaseId={phase.id} />}
-                          {phase.type === "captain_voting" && <CaptainVotingButton phaseId={phase.id} />}
+                          {phase.type === "player_registration" && (
+                            <Link href="/competitions">
+                              <Button variant="outline" size="sm" className="flex items-center gap-1.5">
+                                <UserPlus className="h-3.5 w-3.5" />
+                                <span>Register</span>
+                              </Button>
+                            </Link>
+                          )}
+                          {phase.type === "player_scoring" && timelineData && (
+                            <PlayerScoringButton phaseId={phase.id} competitionId={timelineData.competitionId} />
+                          )}
+                          {phase.type === "captain_voting" && (
+                            <CaptainVotingButton phaseId={phase.id} />
+                          )}
                           {phase.type === "team_formation" && <TeamFormationButton phaseId={phase.id} competitionId={competitionId} />}
                           {phase.type === "registration" && (
                             isRegistered ? (
@@ -1006,6 +1137,11 @@ export function CompetitionTimeline({ competitionId }: { competitionId: string }
                         </div>
                       )}
                     </div>
+                  </div>
+                  
+                  {/* Add tooltip about phase end time */}
+                  <div className="mt-1 text-xs text-muted-foreground italic">
+                    Note: This phase is active until 11:59 PM on the end date.
                   </div>
                 </div>
               </div>
