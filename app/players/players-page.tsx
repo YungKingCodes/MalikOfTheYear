@@ -153,8 +153,8 @@ export default function PlayersPage() {
   const getTeamNameById = (teamId: string) => {
     if (!teamId) return "Unassigned";
     
-    const team = teams.find(team => team.id === teamId);
-    return team ? team.name : teamId;
+    const team = teams.find(team => team._id === teamId);
+    return team ? team.name : "Unknown Team";
   };
 
   if (loading) {
@@ -295,32 +295,32 @@ export default function PlayersPage() {
               {players.length > 0 ? (
                 <div className="space-y-8">
                   <div className="rounded-md border">
-                    <div className="hidden md:grid md:grid-cols-6 p-4 font-medium">
-                      <div>Player</div>
-                      <div>Team</div>
-                      <div>Proficiency Score</div>
-                      <div>Titles</div>
-                      <div>Status</div>
-                      <div className="text-right">Actions</div>
+                    <div className="hidden md:grid md:grid-cols-12 p-4 font-medium border-b">
+                      <div className="col-span-4">Player</div>
+                      {canUserViewPlayerScores() && <div className="col-span-2">Proficiency Score</div>}
+                      <div className="col-span-3">Titles</div>
+                      <div className="col-span-2">Status</div>
+                      <div className="col-span-1 text-right">Actions</div>
                     </div>
                     <div className="divide-y">
                       {players.map((player, playerIndex) => (
                         <div
                           key={player._id || player.id || `player-${playerIndex}`}
-                          className="flex flex-col md:grid md:grid-cols-6 p-4 gap-2 md:gap-0 md:items-center"
+                          className={`flex flex-col md:grid md:grid-cols-12 p-4 gap-4 md:gap-0 md:items-center hover:bg-muted/50 transition-colors`}
                         >
-                          <div className="flex items-center justify-between w-full md:justify-start md:w-auto md:col-span-1">
-                            <div className="flex items-center gap-3">
-                              <Avatar className="h-8 w-8">
+                          {/* Player Info */}
+                          <div className="flex items-center justify-between w-full md:justify-start md:w-auto md:col-span-4">
+                            <div className="flex items-center gap-4">
+                              <Avatar className="h-10 w-10">
                                 <AvatarImage
-                                  src={`/placeholder.svg?height=32&width=32&text=${player.name.substring(0, 2)}`}
+                                  src={`/placeholder.svg?height=40&width=40&text=${player.name.substring(0, 2)}`}
                                   alt={player.name}
                                 />
                                 <AvatarFallback>{player.name.substring(0, 2)}</AvatarFallback>
                               </Avatar>
-                              <div>
-                                <p className="text-sm font-medium">{player.name}</p>
-                                <p className="text-xs text-muted-foreground">{player.position}</p>
+                              <div className="space-y-1">
+                                <p className="font-medium leading-none">{player.name}</p>
+                                <p className="text-sm text-muted-foreground">{player.position}</p>
                               </div>
                             </div>
                             <div className="md:hidden">
@@ -332,59 +332,57 @@ export default function PlayersPage() {
                             </div>
                           </div>
 
-                          <div className="grid grid-cols-2 gap-2 md:hidden">
-                            <div className="text-xs text-muted-foreground">Team:</div>
-                            <div className="text-sm">
-                              {player.teamId
-                                ? getTeamNameById(player.teamId)
-                                : "Unassigned"}
-                            </div>
+                          {/* Mobile View */}
+                          <div className="grid grid-cols-2 gap-4 md:hidden">
+                            {canUserViewPlayerScores(player.teamId) && (
+                              <>
+                                <div className="text-sm text-muted-foreground">Proficiency</div>
+                                <div className="font-medium">
+                                  {player.proficiencyScore}
+                                </div>
+                              </>
+                            )}
 
-                            <div className="text-xs text-muted-foreground">Proficiency:</div>
-                            <div className="text-sm">
-                              {canUserViewPlayerScores(player.teamId) ? player.proficiencyScore : "Hidden"}
-                            </div>
-
-                            <div className="text-xs text-muted-foreground">Titles:</div>
+                            <div className="text-sm text-muted-foreground">Titles</div>
                             <div>
                               {player.titles && player.titles.length > 0 ? (
-                                <Badge variant="secondary" className="text-xs">
+                                <Badge variant="secondary">
                                   {player.titles[0]}
                                 </Badge>
                               ) : (
-                                "None"
+                                <span className="text-muted-foreground">No titles earned</span>
                               )}
                             </div>
 
-                            <div className="text-xs text-muted-foreground">Status:</div>
+                            <div className="text-sm text-muted-foreground">Status</div>
                             <div>
-                              <Badge variant={player.teamId ? "success" : "outline"} className="text-xs">
+                              <Badge variant={player.teamId ? "success" : "outline"}>
                                 {player.teamId ? "Active" : "Pending"}
                               </Badge>
                             </div>
                           </div>
 
-                          <div className="hidden md:block">
-                            {player.teamId
-                              ? getTeamNameById(player.teamId)
-                              : "Unassigned"}
-                          </div>
-                          <div className="hidden md:block text-sm">
-                            {canUserViewPlayerScores(player.teamId) ? player.proficiencyScore : "Hidden"}
-                          </div>
-                          <div className="hidden md:block">
-                            {player.titles && player.titles.length > 0 && (
-                              <Badge variant="secondary" className="text-xs">
+                          {/* Desktop View */}
+                          {canUserViewPlayerScores(player.teamId) && (
+                            <div className="hidden md:flex items-center md:col-span-2 font-medium">
+                              {player.proficiencyScore}
+                            </div>
+                          )}
+                          <div className="hidden md:flex items-center md:col-span-3">
+                            {player.titles && player.titles.length > 0 ? (
+                              <Badge variant="secondary">
                                 {player.titles[0]}
                               </Badge>
+                            ) : (
+                              <span className="text-muted-foreground">No titles earned</span>
                             )}
                           </div>
-                          <div className="hidden md:block">
-                            <Badge variant={player.teamId ? "success" : "outline"} className="text-xs">
+                          <div className="hidden md:flex items-center md:col-span-2">
+                            <Badge variant={player.teamId ? "success" : "outline"}>
                               {player.teamId ? "Active" : "Pending"}
                             </Badge>
                           </div>
-                          <div className="hidden md:flex justify-end gap-2">
+                          <div className="hidden md:flex justify-end items-center md:col-span-1">
                             <PlayerActions 
                               playerId={player._id || player.id || `player-${playerIndex}`} 
                               teamId={player.teamId} 
