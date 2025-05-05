@@ -20,6 +20,11 @@ export async function GET(request: Request) {
     const teamId = url.searchParams.get('team') || ''
     const hasTitles = url.searchParams.get('hasTitles') === 'true'
 
+    // Get active competition
+    const activeCompetition = await db.competition.findFirst({
+      where: { status: "active" }
+    })
+
     // Build filter conditions
     const whereConditions: any = {}
     
@@ -43,29 +48,40 @@ export async function GET(request: Request) {
       whereConditions.titles = { isEmpty: false }
     }
 
-    // Fetch users
+    // Fetch users with their competition registrations
     const users = await db.user.findMany({
       where: whereConditions,
       include: {
-        team: true
+        team: true,
+        competitions: activeCompetition ? {
+          where: { 
+            competitionId: activeCompetition.id 
+          }
+        } : undefined
       }
     })
 
     // Format users for the response
-    const formattedUsers = users.map(user => ({
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      image: user.image,
-      role: user.role,
-      position: user.position,
-      teamId: user.teamId,
-      teamName: user.team?.name || "Unassigned",
-      titles: user.titles || [],
-      proficiencyScore: user.proficiencyScore || 0,
-      proficiencies: user.proficiencies || [],
-      createdAt: user.createdAt
-    }))
+    const formattedUsers = users.map(user => {
+      // Get user's competition data for the active competition (if any)
+      const userCompetition = user.competitions && user.competitions.length > 0 ? 
+        user.competitions[0] : null;
+      
+      return {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        image: user.image,
+        role: user.role,
+        position: user.position,
+        teamId: user.teamId,
+        teamName: user.team?.name || "Unassigned",
+        titles: user.titles || [],
+        proficiencyScore: userCompetition?.proficiencyScore || 0,
+        proficiencies: userCompetition?.proficiencies || [],
+        createdAt: user.createdAt
+      }
+    })
 
     return NextResponse.json(formattedUsers)
   } catch (error) {

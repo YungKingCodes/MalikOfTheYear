@@ -30,7 +30,6 @@ export interface PlayerData {
   role: string;
   teamId: string;
   teamName: string;
-  proficiencyScore: number;
   wins: number;
   losses: number;
   titles: string[];

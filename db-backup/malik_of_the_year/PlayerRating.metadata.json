@@ -1,0 +1,1 @@
+{"indexes":[{"v":{"$numberInt":"2"},"key":{"_id":{"$numberInt":"1"}},"name":"_id_"},{"v":{"$numberInt":"2"},"key":{"raterId":{"$numberInt":"1"},"ratedId":{"$numberInt":"1"},"phaseId":{"$numberInt":"1"}},"name":"PlayerRating_raterId_ratedId_phaseId_key","unique":true}],"uuid":"3af8f2d3991749e0b9d7c480a03bfbbe","collectionName":"PlayerRating","type":"collection"}

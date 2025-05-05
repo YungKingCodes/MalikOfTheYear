@@ -32,7 +32,6 @@ export async function GET(request: Request, { params }: { params: { teamId: stri
         name: true,
         position: true,
         titles: true,
-        proficiencyScore: true,
         image: true
       }
     })

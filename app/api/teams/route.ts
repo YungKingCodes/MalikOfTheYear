@@ -18,8 +18,11 @@ export async function GET(request: Request) {
     const competitionId = searchParams.get('competitionId')
     const includeScores = searchParams.get('includeScores') === 'true'
     
+    console.log(`API request: Get teams for competition: ${competitionId}, includeScores: ${includeScores}`)
+    
     // Validate competitionId
     if (!competitionId) {
+      console.log('API error: No competitionId provided')
       return NextResponse.json(
         { error: "Competition ID is required" },
         { status: 400 }
@@ -45,6 +48,8 @@ export async function GET(request: Request) {
       }
     })
 
+    console.log(`Found ${teams.length} teams for competition ${competitionId}`)
+    
     // If no teams, return empty array
     if (!teams.length) {
       return NextResponse.json([])
@@ -63,8 +68,7 @@ export async function GET(request: Request) {
         id: true,
         name: true,
         image: true,
-        role: true,
-        proficiencyScore: true
+        role: true
       }
     })
     
@@ -116,9 +120,9 @@ export async function GET(request: Request) {
         // Calculate average self score
         let selfScoreAvg = 0
         if (userSelfScores.length > 0) {
-          const selfScoreSum = userSelfScores.reduce((sum, score) => {
+          const selfScoreSum = userSelfScores.reduce((sum: number, score: any) => {
             const scoreValues = Object.values(score.scores as Record<string, number>)
-            return sum + scoreValues.reduce((s, v) => s + v, 0) / scoreValues.length
+            return sum + scoreValues.reduce((s: number, v: number) => s + v, 0) / scoreValues.length
           }, 0)
           selfScoreAvg = selfScoreSum / userSelfScores.length
         }
@@ -126,15 +130,15 @@ export async function GET(request: Request) {
         // Calculate average peer score
         let peerScoreAvg = 0
         if (userPeerRatings.length > 0) {
-          const peerScoreSum = userPeerRatings.reduce((sum, rating) => {
+          const peerScoreSum = userPeerRatings.reduce((sum: number, rating: any) => {
             const scoreValues = Object.values(rating.scores as Record<string, number>)
-            return sum + scoreValues.reduce((s, v) => s + v, 0) / scoreValues.length
+            return sum + scoreValues.reduce((s: number, v: number) => s + v, 0) / scoreValues.length
           }, 0)
           peerScoreAvg = peerScoreSum / userPeerRatings.length
         }
         
         // Calculate final score with 40/60 weighting
-        let finalScore = userMap.get(userId)?.proficiencyScore || 0
+        let finalScore = 0
         
         if (userSelfScores.length > 0 || userPeerRatings.length > 0) {
           if (userSelfScores.length > 0 && userPeerRatings.length > 0) {
@@ -160,7 +164,7 @@ export async function GET(request: Request) {
           .map(id => ({
             id,
             name: userMap.get(id)?.name,
-            score: playerScores.get(id) || userMap.get(id)?.proficiencyScore || 0
+            score: playerScores.get(id) || 0
           }))
         
         const totalScore = teamMembers.reduce((sum, member) => sum + member.score, 0)

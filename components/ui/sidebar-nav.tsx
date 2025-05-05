@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { LucideIcon, Gauge, Calendar, Settings, MessagesSquare, Users, Trophy, Gamepad, LayoutDashboard } from "lucide-react"
+import { LucideIcon, Gauge, Calendar, Settings, MessagesSquare, Users, Trophy, Gamepad, LayoutDashboard, UserCog } from "lucide-react"
 
 interface SidebarNavItem {
   title: string
@@ -43,6 +43,8 @@ export function SidebarNav({ className, items, ...props }: SidebarNavProps) {
       case "Dashboard":
       case "LayoutDashboard":
         return LayoutDashboard
+      case "UserCog":
+        return UserCog
       default:
         return null
     }

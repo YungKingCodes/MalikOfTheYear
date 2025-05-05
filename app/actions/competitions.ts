@@ -223,8 +223,7 @@ export async function getCompetitionByYear(year: number) {
               select: {
                 id: true,
                 name: true,
-                image: true,
-                proficiencyScore: true
+                image: true
               }
             }
           }
@@ -263,14 +262,13 @@ export async function getCompetitionByYear(year: number) {
         }
       },
       orderBy: {
-        proficiencyScore: 'desc'
+        createdAt: 'desc'
       },
       take: 5,
       select: {
         id: true,
         name: true,
         image: true,
-        proficiencyScore: true,
         titles: true,
         team: {
           select: {
@@ -374,7 +372,6 @@ export async function getCompetitionByYear(year: number) {
         id: player.id,
         name: player.name,
         image: player.image,
-        score: player.proficiencyScore,
         titles: player.titles,
         teamName: player.team?.name
       }))

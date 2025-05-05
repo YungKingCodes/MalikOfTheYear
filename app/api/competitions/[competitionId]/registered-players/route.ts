@@ -153,7 +153,6 @@ export async function GET(
         image: true,
         role: true,
         position: true,
-        proficiencyScore: true,
         teamId: true,
         team: {
           select: {

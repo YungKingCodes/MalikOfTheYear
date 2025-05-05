@@ -70,13 +70,12 @@ export async function getDashboardStats() {
     // Get top players by score
     const topPlayers = await db.user.findMany({
       where: { role: 'player' },
-      orderBy: { proficiencyScore: 'desc' },
+      orderBy: { createdAt: 'desc' },
       take: 5,
       select: {
         id: true,
         name: true,
         image: true,
-        proficiencyScore: true,
         teamId: true,
         team: {
           select: { name: true }

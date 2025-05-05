@@ -131,12 +131,53 @@ export async function getRecentGames(limit = 4) {
   return games.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, limit)
 }
 
+// Define interfaces for the user and proficiency types
+interface Proficiency {
+  name: string;
+  score?: number;
+  value?: number;
+}
+
+interface User {
+  id: string;
+  name?: string;
+  email?: string;
+  image?: string;
+  proficiencyScore?: number;
+  proficiencies?: Proficiency[];
+  [key: string]: any; // Allow for other properties
+}
+
 // Get top players
 export async function getTopPlayers(limit = 5) {
   const users = await getUsers()
 
+  // Calculate proficiency score for each user if not provided
+  const usersWithScore = users.map((user: User) => {
+    // If user already has a proficiencyScore, use it
+    if (user.proficiencyScore) {
+      return user;
+    }
+    
+    // Calculate proficiency score from proficiencies array
+    if (user.proficiencies && user.proficiencies.length > 0) {
+      const sum = user.proficiencies.reduce((acc: number, prof: Proficiency) => acc + (prof.score || prof.value || 0), 0);
+      const proficiencyScore = Math.round(sum / user.proficiencies.length);
+      return {
+        ...user,
+        proficiencyScore
+      };
+    }
+    
+    // If no proficiencies data, default to 0
+    return {
+      ...user,
+      proficiencyScore: 0
+    };
+  });
+
   // Sort by proficiency score (highest first) and take the limit
-  return users.sort((a: any, b: any) => b.proficiencyScore - a.proficiencyScore).slice(0, limit)
+  return usersWithScore.sort((a: User, b: User) => (b.proficiencyScore || 0) - (a.proficiencyScore || 0)).slice(0, limit);
 }
 
 // Get suggested games

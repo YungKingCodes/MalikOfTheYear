@@ -4,84 +4,97 @@ import { auth } from '@/auth'
 
 export async function GET(request: Request) {
   try {
+    // Authenticate user
     const session = await auth()
-    if (!session?.user) {
+    if (!session?.user?.id) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
       )
     }
-    const currentUserId = session.user.id; // Get current user ID
+    
+    // Only admins can access player data
+    if (session.user.role !== 'admin') {
+      return NextResponse.json(
+        { error: "Unauthorized: Only admins can access player data" },
+        { status: 403 }
+      )
+    }
 
     // Get query parameters
     const { searchParams } = new URL(request.url)
-    const withoutTeam = searchParams.get('withoutTeam') === 'true'
-    const competitionId = searchParams.get('competitionId') // Get competitionId
+    const competitionId = searchParams.get('competitionId')
     
-    // Build query
-    const where: any = {}
+    if (!competitionId) {
+      return NextResponse.json(
+        { error: "Competition ID is required" },
+        { status: 400 }
+      )
+    }
+
+    // Verify competition exists
+    const competition = await db.competition.findUnique({
+      where: { id: competitionId }
+    })
     
-    // Filter players without a team if requested
-    if (withoutTeam) {
-      where.teamId = null
+    if (!competition) {
+      return NextResponse.json(
+        { error: "Competition not found" },
+        { status: 404 }
+      )
     }
     
-    // Filter players by competition registration if competitionId is provided
-    if (competitionId) {
-      where.competitions = {
-        some: {
-          competitionId: competitionId,
-        },
-      }
-    }
-    
-    // Get players from database
-    const players = await db.user.findMany({
-      where,
-      select: {
-        id: true,
-        name: true,
-        image: true,
-        role: true,
-        teamId: true,
-        position: true,
-        // Include the user's competition data to get proficiency scores
-        competitions: competitionId ? {
-          where: { competitionId },
+    // Get all players for the competition with their user info
+    const players = await db.userCompetition.findMany({
+      where: { competitionId },
+      include: {
+        user: {
           select: {
-            proficiencyScore: true,
-            proficiencies: true
+            id: true,
+            name: true,
+            email: true,
+            image: true,
+            teamId: true
           }
-        } : undefined
+        }
       },
       orderBy: {
-        name: 'asc'
+        user: {
+          name: 'asc'
+        }
       }
     })
     
-    // Format the results to include userCompetition
-    const formattedPlayers = players.map(player => {
-      const userCompetition = competitionId && player.competitions && player.competitions[0] 
-        ? player.competitions[0] 
-        : null;
-      
-      return {
-        id: player.id,
-        name: player.name,
-        image: player.image,
-        role: player.role,
-        teamId: player.teamId,
-        position: player.position,
-        userCompetition
-      };
-    });
+    // Enhanced player data with team names
+    const teamIds = players
+      .filter(p => p.user.teamId)
+      .map(p => p.user.teamId)
+      .filter((id): id is string => id !== null && id !== undefined)
     
-    // Filter out the current user if fetching for scoring others in a specific competition
-    const filteredPlayers = competitionId 
-      ? formattedPlayers.filter(player => player.id !== currentUserId) 
-      : formattedPlayers;
-
-    return NextResponse.json({ players: filteredPlayers }) // Return players in an object
+    // Create a map of team IDs to team names if there are teams
+    const teamMap: Record<string, string> = {}
+    
+    if (teamIds.length > 0) {
+      const teams = await db.team.findMany({
+        where: {
+          id: { in: teamIds }
+        },
+        select: {
+          id: true,
+          name: true
+        }
+      })
+      
+      teams.forEach(team => {
+        teamMap[team.id] = team.name
+      })
+    }
+    
+    // Return the players with enhanced data
+    return NextResponse.json(players.map(player => ({
+      ...player,
+      teamName: player.user.teamId ? teamMap[player.user.teamId] || 'Unknown Team' : null
+    })))
   } catch (error) {
     console.error("Error fetching players:", error)
     return NextResponse.json(

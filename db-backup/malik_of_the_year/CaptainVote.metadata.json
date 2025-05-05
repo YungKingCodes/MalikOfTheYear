@@ -1,0 +1,1 @@
+{"indexes":[{"v":{"$numberInt":"2"},"key":{"_id":{"$numberInt":"1"}},"name":"_id_"},{"v":{"$numberInt":"2"},"key":{"voterId":{"$numberInt":"1"},"phaseId":{"$numberInt":"1"},"teamId":{"$numberInt":"1"}},"name":"CaptainVote_voterId_phaseId_teamId_key","unique":true}],"uuid":"2dbb5224cf61439198cdd9e1526a8c86","collectionName":"CaptainVote","type":"collection"}

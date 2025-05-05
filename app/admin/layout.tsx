@@ -15,12 +15,12 @@ const sidebarNavItems = [
   {
     title: "Overview",
     href: "/admin",
-    icon: "Gauge",
+    icon: "LayoutDashboard",
   },
   {
     title: "Event Management",
     href: "/admin/event-management",
-    icon: "Calendar",
+    icon: "LayoutDashboard",
   },
   {
     title: "Teams",
@@ -28,9 +28,14 @@ const sidebarNavItems = [
     icon: "Users",
   },
   {
+    title: "Players",
+    href: "/admin/players",
+    icon: "UserCog",
+  },
+  {
     title: "Games",
     href: "/admin/games",
-    icon: "GamepadIcon",
+    icon: "Gamepad",
   },
   {
     title: "Competitions",

@@ -289,7 +289,6 @@ model UserCompetition {
   status        String     @default("registered") // "registered", "active", "completed"
   registeredAt  DateTime   @default(now())
   finalCompetitionScore Int? // Stores the calculated final score for this user in this competition
-  proficiencyScore Int?    @default(0)
   proficiencies    Json[]  @default([])
   
   // Relations

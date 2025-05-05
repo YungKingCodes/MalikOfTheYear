@@ -25,7 +25,7 @@ import {
 import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/components/ui/use-toast"
-import { AlertCircle, ChevronRight, Edit, Plus, Trash, UserPlus, Users } from "lucide-react"
+import { AlertCircle, ChevronRight, Edit, Plus, Trash, UserPlus, Users, Shuffle } from "lucide-react"
 import { createTeam } from "@/app/actions/teams"
 import { getCompetitions } from "@/app/actions/competitions"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -41,11 +41,16 @@ export default function TeamsAdminPage() {
   const [activeCompetition, setActiveCompetition] = useState<any>(null)
   const [competitions, setCompetitions] = useState<any[]>([])
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
+  const [randomizeDialogOpen, setRandomizeDialogOpen] = useState(false)
   const [newTeamName, setNewTeamName] = useState("")
   const [selectedCompetitionId, setSelectedCompetitionId] = useState<string>("")
   const [newTeamCompetitionId, setNewTeamCompetitionId] = useState<string>("")
+  const [randomizeCompetitionId, setRandomizeCompetitionId] = useState<string>("")
+  const [teamCount, setTeamCount] = useState<number>(4)
   const [isCreating, setIsCreating] = useState(false)
-  const [showPlayerScores, setShowPlayerScores] = useState(false)
+  const [isRandomizing, setIsRandomizing] = useState(false)
+  const [showPlayerScores, setShowPlayerScores] = useState(true)
+  const [randomizationMode, setRandomizationMode] = useState<"create" | "rebalance">("create")
 
   useEffect(() => {
     async function loadData() {
@@ -54,7 +59,10 @@ export default function TeamsAdminPage() {
         
         // Get competitions
         const competitionsData = await getCompetitions()
+        console.log("Loaded competitions:", competitionsData?.length || 0, competitionsData)
+        
         if (!competitionsData || competitionsData.length === 0) {
+          console.error("No competitions found")
           setLoading(false)
           return
         }
@@ -63,11 +71,12 @@ export default function TeamsAdminPage() {
         
         // Set active competition as default
         const active = competitionsData.find(comp => comp.status === "active") || competitionsData[0]
+        console.log("Setting active competition:", active?.id, active)
         setActiveCompetition(active)
         setSelectedCompetitionId(active.id)
         
         // Fetch teams for the active competition
-        await loadTeamsForCompetition(active.id, showPlayerScores)
+        await loadTeamsForCompetition(active.id, true)
       } catch (error) {
         console.error("Failed to load teams data:", error)
         toast({
@@ -83,20 +92,24 @@ export default function TeamsAdminPage() {
     loadData()
   }, [toast])
 
-  const loadTeamsForCompetition = async (competitionId: string, includeScores: boolean = false) => {
+  const loadTeamsForCompetition = async (competitionId: string, includeScores: boolean = true) => {
     if (!competitionId) return
     
     try {
       setLoading(true)
+      console.log(`Fetching teams for competition: ${competitionId}, includeScores: ${includeScores}`)
       const response = await fetch(`/api/teams?competitionId=${competitionId}&includeScores=${includeScores}`, {
         credentials: "include"
       })
       
       if (!response.ok) {
-        throw new Error("Failed to fetch teams");
+        const errorText = await response.text()
+        console.error("API response error:", response.status, errorText)
+        throw new Error(`Failed to fetch teams: ${response.status} ${errorText}`);
       }
       
       const data = await response.json()
+      console.log("Teams data received:", data.length > 0 ? `${data.length} teams found` : "No teams found", data)
       setTeams(data)
     } catch (error) {
       console.error("Failed to load teams:", error)
@@ -112,7 +125,7 @@ export default function TeamsAdminPage() {
 
   const handleCompetitionChange = (competitionId: string) => {
     setSelectedCompetitionId(competitionId)
-    loadTeamsForCompetition(competitionId, showPlayerScores)
+    loadTeamsForCompetition(competitionId, true)
   }
   
   const handleTogglePlayerScores = (checked: boolean) => {
@@ -151,7 +164,7 @@ export default function TeamsAdminPage() {
       
       // Refresh the teams list if the created team belongs to the currently selected competition
       if (newTeamCompetitionId === selectedCompetitionId) {
-        await loadTeamsForCompetition(selectedCompetitionId, showPlayerScores)
+        await loadTeamsForCompetition(selectedCompetitionId, true)
       }
       
       setCreateDialogOpen(false)
@@ -170,6 +183,105 @@ export default function TeamsAdminPage() {
       })
     } finally {
       setIsCreating(false)
+    }
+  }
+
+  const handleRandomizeClick = () => {
+    // Set default competition in randomize dialog to currently selected competition
+    setRandomizeCompetitionId(selectedCompetitionId)
+    setRandomizeDialogOpen(true)
+  }
+
+  const handleRandomizeTeams = async () => {
+    if (!randomizeCompetitionId) {
+      toast({
+        title: "Missing competition",
+        description: "Please select a competition for team randomization.",
+        variant: "destructive"
+      })
+      return
+    }
+
+    if (randomizationMode === "create" && teamCount < 2) {
+      toast({
+        title: "Invalid team count",
+        description: "Number of teams must be at least 2.",
+        variant: "destructive"
+      })
+      return
+    }
+
+    setIsRandomizing(true)
+    try {
+      // Call the API based on the selected mode
+      if (randomizationMode === "create") {
+        // Create new randomized teams
+        const response = await fetch('/api/teams/create-bulk', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            method: "auto",
+            competitionId: randomizeCompetitionId,
+            teamCount: teamCount
+          }),
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json()
+          throw new Error(errorData.error || "Failed to create randomized teams")
+        }
+
+        const result = await response.json()
+        
+        // Refresh the teams list
+        await loadTeamsForCompetition(selectedCompetitionId, true)
+        
+        setRandomizeDialogOpen(false)
+        
+        toast({
+          title: "Teams created",
+          description: `Created ${result.teams.length} balanced teams successfully.`
+        })
+      } else {
+        // Rebalance existing teams
+        const response = await fetch('/api/teams/rebalance-all', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            competitionId: randomizeCompetitionId
+          }),
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json()
+          throw new Error(errorData.error || "Failed to rebalance teams")
+        }
+
+        const result = await response.json()
+        
+        // Refresh the teams list
+        await loadTeamsForCompetition(selectedCompetitionId, true)
+        
+        setRandomizeDialogOpen(false)
+        
+        toast({
+          title: "Teams rebalanced",
+          description: `Rebalanced ${result.updatedTeams} teams successfully.`
+        })
+      }
+    } catch (error) {
+      console.error("Failed to randomize teams:", error)
+      toast({
+        title: "Error randomizing teams",
+        description: error instanceof Error ? error.message : "Could not create/rebalance teams. Please try again.",
+        variant: "destructive"
+      })
+    } finally {
+      setIsRandomizing(false)
     }
   }
 
@@ -230,6 +342,10 @@ export default function TeamsAdminPage() {
               ))}
             </SelectContent>
           </Select>
+          <Button variant="outline" onClick={handleRandomizeClick}>
+            <Shuffle className="h-4 w-4 mr-2" />
+            Randomize Teams
+          </Button>
           <Button onClick={handleCreateClick}>
             <Plus className="h-4 w-4 mr-2" />
             Create Team
@@ -245,6 +361,7 @@ export default function TeamsAdminPage() {
             <TableRow>
               <TableHead className="w-[200px]">Team Name</TableHead>
               <TableHead>Members</TableHead>
+              <TableHead>Score</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -256,12 +373,20 @@ export default function TeamsAdminPage() {
                 <TableCell>
                   <div className="flex items-center gap-2">
                     <Users className="h-4 w-4 text-muted-foreground" />
-                    <span>{team.members?.length || 0} members</span>
+                    <span>{team.memberCount || 0} members</span>
+                    {team.averagePlayerScore && (
+                      <Badge variant="outline" className="ml-1">
+                        Avg: {team.averagePlayerScore}
+                      </Badge>
+                    )}
                   </div>
                 </TableCell>
                 <TableCell>
+                  {team.score || 0}
+                </TableCell>
+                <TableCell>
                   <Badge variant={team.status === "active" ? "default" : "secondary"}>
-                    {team.status}
+                    {team.status || "inactive"}
                   </Badge>
                 </TableCell>
                 <TableCell className="text-right">
@@ -276,7 +401,7 @@ export default function TeamsAdminPage() {
               </TableRow>
             )) : (
               <TableRow>
-                <TableCell colSpan={4} className="text-center py-6 text-muted-foreground">
+                <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">
                   No teams found for this competition.
                 </TableCell>
               </TableRow>
@@ -287,10 +412,7 @@ export default function TeamsAdminPage() {
 
       <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
         <DialogTrigger asChild>
-          <Button onClick={handleCreateClick}>
-            <Plus className="mr-2 h-4 w-4" />
-            Create Team
-          </Button>
+          <span className="hidden"></span>
         </DialogTrigger>
         <DialogContent>
           <DialogHeader>
@@ -341,6 +463,103 @@ export default function TeamsAdminPage() {
               disabled={isCreating}
             >
               {isCreating ? "Creating..." : "Create Team"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={randomizeDialogOpen} onOpenChange={setRandomizeDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Team Randomization</DialogTitle>
+            <DialogDescription>
+              Create or rebalance teams based on player scores and ratings.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-5 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="select-randomize-competition">Competition</Label>
+              <Select 
+                value={randomizeCompetitionId} 
+                onValueChange={setRandomizeCompetitionId}
+              >
+                <SelectTrigger id="select-randomize-competition">
+                  <SelectValue placeholder="Select a competition" />
+                </SelectTrigger>
+                <SelectContent>
+                  {competitions.map((competition) => (
+                    <SelectItem key={competition.id} value={competition.id}>
+                      {competition.name} {competition.status === "active" && "(Active)"}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <Separator />
+            
+            <div className="space-y-3">
+              <Label>Randomization Mode</Label>
+              <div className="flex flex-col space-y-2">
+                <div className="flex items-center space-x-2">
+                  <input 
+                    type="radio" 
+                    id="create-new" 
+                    name="randomization-mode" 
+                    checked={randomizationMode === "create"}
+                    onChange={() => setRandomizationMode("create")}
+                    className="h-4 w-4 text-primary"
+                  />
+                  <Label htmlFor="create-new" className="cursor-pointer">Create new balanced teams</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <input 
+                    type="radio" 
+                    id="rebalance" 
+                    name="randomization-mode" 
+                    checked={randomizationMode === "rebalance"}
+                    onChange={() => setRandomizationMode("rebalance")}
+                    className="h-4 w-4 text-primary"
+                  />
+                  <Label htmlFor="rebalance" className="cursor-pointer">Rebalance existing teams</Label>
+                </div>
+              </div>
+            </div>
+            
+            {randomizationMode === "create" && (
+              <div className="space-y-2">
+                <Label htmlFor="team-count">Number of Teams</Label>
+                <Input 
+                  id="team-count" 
+                  type="number"
+                  min="2"
+                  placeholder="Enter number of teams" 
+                  value={teamCount}
+                  onChange={(e) => setTeamCount(parseInt(e.target.value) || 2)}
+                />
+              </div>
+            )}
+            
+            <p className="text-sm text-muted-foreground">
+              Teams will have balanced player scores using player self-assessments and peer ratings.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setRandomizeDialogOpen(false)}
+              disabled={isRandomizing}
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleRandomizeTeams}
+              disabled={isRandomizing}
+            >
+              {isRandomizing ? 
+                (randomizationMode === "create" ? "Creating..." : "Rebalancing...") : 
+                (randomizationMode === "create" ? "Create Teams" : "Rebalance Teams")
+              }
             </Button>
           </DialogFooter>
         </DialogContent>

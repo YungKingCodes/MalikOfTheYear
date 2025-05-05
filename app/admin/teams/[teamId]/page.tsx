@@ -704,7 +704,7 @@ export default function TeamDetailsPage({ params }: { params: { teamId: string }
 
         {/* Team Scores Section */}
         {(session?.user?.role === 'admin' || isCaptain) && (
-          <Card className="mt-6">
+          <Card className="md:col-span-3 mt-6">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Award className="h-5 w-5 text-primary" />
@@ -723,110 +723,184 @@ export default function TeamDetailsPage({ params }: { params: { teamId: string }
                   <h3 className="text-lg font-medium">Loading scores...</h3>
                 </div>
               ) : teamScores ? (
-                <div className="space-y-6">
-                  <div className="flex flex-col md:flex-row md:items-center md:justify-between">
-                    <div>
-                      <h3 className="text-lg font-medium">Team Average Score</h3>
-                      <p className="text-sm text-muted-foreground">Based on individual player assessments</p>
-                    </div>
-                    <div className="mt-2 md:mt-0">
-                      <div className="flex items-center gap-4">
-                        <div className="h-16 w-16 rounded-full border-4 border-primary flex items-center justify-center">
-                          <span className="text-xl font-bold">{teamScores.averageScore}</span>
-                        </div>
-                        <div>
-                          <p className="font-medium">{teamScores.totalMembers} Players</p>
+                <div className="space-y-8">
+                  {/* Performance Overview Cards */}
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <Card>
+                      <CardContent className="pt-6">
+                        <div className="flex flex-col items-center text-center">
+                          <div className="h-16 w-16 rounded-full border-4 border-primary flex items-center justify-center mb-2">
+                            <span className="text-2xl font-bold">{teamScores.averageScore}</span>
+                          </div>
+                          <h3 className="font-medium">Team Average</h3>
                           <p className="text-sm text-muted-foreground">
                             {teamScores.averageScore < 70 ? "Below Average" : 
                              teamScores.averageScore < 85 ? "Average" : "Above Average"}
                           </p>
                         </div>
-                      </div>
-                    </div>
+                      </CardContent>
+                    </Card>
+                    
+                    <Card>
+                      <CardContent className="pt-6">
+                        <div className="flex flex-col items-center text-center">
+                          <div className="h-16 w-16 rounded-full border-4 border-green-500 flex items-center justify-center mb-2">
+                            <span className="text-2xl font-bold">{teamScores.highestScore || 0}</span>
+                          </div>
+                          <h3 className="font-medium">Highest Score</h3>
+                          <p className="text-sm text-muted-foreground">
+                            Best performing player
+                          </p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                    
+                    <Card>
+                      <CardContent className="pt-6">
+                        <div className="flex flex-col items-center text-center">
+                          <div className="h-16 w-16 rounded-full border-4 border-amber-500 flex items-center justify-center mb-2">
+                            <span className="text-2xl font-bold">{teamScores.totalMembers}</span>
+                          </div>
+                          <h3 className="font-medium">Team Size</h3>
+                          <p className="text-sm text-muted-foreground">
+                            Active players
+                          </p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                    
+                    <Card>
+                      <CardContent className="pt-6">
+                        <div className="flex flex-col items-center text-center">
+                          <div className="h-16 w-16 rounded-full border-4 border-blue-500 flex items-center justify-center mb-2">
+                            <span className="text-2xl font-bold">{teamScores.completedAssessments || 0}</span>
+                          </div>
+                          <h3 className="font-medium">Assessments</h3>
+                          <p className="text-sm text-muted-foreground">
+                            Completed evaluations
+                          </p>
+                        </div>
+                      </CardContent>
+                    </Card>
                   </div>
                   
                   <Separator />
                   
+                  {/* Player Scores Table */}
                   <div>
-                    <h3 className="text-lg font-medium mb-4">Player Scores</h3>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Player</TableHead>
-                          <TableHead>Self Assessment</TableHead>
-                          <TableHead>Peer Rating</TableHead>
-                          <TableHead>Final Score</TableHead>
-                          <TableHead>Role</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {teamScores.members.map((member: any) => (
-                          <TableRow key={member.id}>
-                            <TableCell>
-                              <div className="flex items-center gap-3">
-                                <Avatar className="h-8 w-8">
-                                  <AvatarImage src={member.image} alt={member.name} />
-                                  <AvatarFallback>
-                                    {member.name?.substring(0, 2).toUpperCase() || "U"}
-                                  </AvatarFallback>
-                                </Avatar>
-                                <span className="font-medium">{member.name}</span>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              {member.selfScore ? (
-                                <div className="flex items-center gap-1">
-                                  <span className="text-sm font-medium">
-                                    {member.selfScore.toFixed(1)}
-                                  </span>
-                                  <span className="text-xs text-muted-foreground">/5</span>
-                                </div>
-                              ) : (
-                                <span className="text-xs text-muted-foreground">Not submitted</span>
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              {member.peerScore ? (
-                                <div className="flex items-center gap-1">
-                                  <span className="text-sm font-medium">
-                                    {member.peerScore.toFixed(1)}
-                                  </span>
-                                  <span className="text-xs text-muted-foreground">/5</span>
-                                </div>
-                              ) : (
-                                <span className="text-xs text-muted-foreground">No ratings</span>
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant="secondary" className="font-mono">
-                                {member.finalScore}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              {member.isCaptain ? (
-                                <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100">
-                                  <Crown className="h-3 w-3 mr-1" />
-                                  Captain
-                                </Badge>
-                              ) : (
-                                <Badge variant="outline">Member</Badge>
-                              )}
-                            </TableCell>
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-medium">Player Performance</h3>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="bg-green-50 text-green-700">
+                          Self Assessment
+                        </Badge>
+                        <Badge variant="outline" className="bg-blue-50 text-blue-700">
+                          Peer Rating
+                        </Badge>
+                        <Badge variant="outline" className="bg-purple-50 text-purple-700">
+                          Final Score
+                        </Badge>
+                      </div>
+                    </div>
+                    
+                    <div className="rounded-md border">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-muted/50">
+                            <TableHead className="w-[300px]">Player</TableHead>
+                            <TableHead className="text-center">Self Assessment</TableHead>
+                            <TableHead className="text-center">Peer Rating</TableHead>
+                            <TableHead className="text-center">Final Score</TableHead>
+                            <TableHead className="text-center">Role</TableHead>
                           </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+                        </TableHeader>
+                        <TableBody>
+                          {teamScores.members.map((member: any) => (
+                            <TableRow key={member.id} className="hover:bg-muted/50">
+                              <TableCell>
+                                <div className="flex items-center gap-3">
+                                  <Avatar className="h-8 w-8">
+                                    <AvatarImage src={member.image} alt={member.name} />
+                                    <AvatarFallback>
+                                      {member.name?.substring(0, 2).toUpperCase() || "U"}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <div>
+                                    <span className="font-medium">{member.name}</span>
+                                    {member.isCaptain && (
+                                      <Badge variant="secondary" className="ml-2">
+                                        <Crown className="h-3 w-3 mr-1" />
+                                        Captain
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-center">
+                                {member.selfScore ? (
+                                  <div className="flex items-center justify-center gap-1">
+                                    <span className="text-sm font-medium">
+                                      {member.selfScore.toFixed(1)}
+                                    </span>
+                                    <span className="text-xs text-muted-foreground">/5</span>
+                                  </div>
+                                ) : (
+                                  <span className="text-xs text-muted-foreground">Not submitted</span>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-center">
+                                {member.peerScore ? (
+                                  <div className="flex items-center justify-center gap-1">
+                                    <span className="text-sm font-medium">
+                                      {member.peerScore.toFixed(1)}
+                                    </span>
+                                    <span className="text-xs text-muted-foreground">/5</span>
+                                  </div>
+                                ) : (
+                                  <span className="text-xs text-muted-foreground">No ratings</span>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-center">
+                                <Badge 
+                                  variant="secondary" 
+                                  className={`font-mono ${
+                                    member.finalScore >= 85 ? 'bg-green-100 text-green-800' :
+                                    member.finalScore >= 70 ? 'bg-blue-100 text-blue-800' :
+                                    'bg-amber-100 text-amber-800'
+                                  }`}
+                                >
+                                  {member.finalScore}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-center">
+                                {member.isCaptain ? (
+                                  <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100">
+                                    <Crown className="h-3 w-3 mr-1" />
+                                    Captain
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="outline">Member</Badge>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
                   </div>
                 </div>
               ) : (
-                <div className="py-8 text-center">
-                  <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-muted mb-4">
-                    <Award className="h-6 w-6 text-muted-foreground" />
+                <div className="py-12 text-center">
+                  <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-muted mb-4">
+                    <Award className="h-8 w-8 text-muted-foreground" />
                   </div>
-                  <h3 className="text-lg font-medium">No Score Data Available</h3>
-                  <p className="text-sm text-muted-foreground mt-1 mb-4">
+                  <h3 className="text-xl font-medium">No Score Data Available</h3>
+                  <p className="text-sm text-muted-foreground mt-2 mb-4">
                     Player scores will appear here once assessments are submitted.
                   </p>
+                  <Button variant="outline" asChild>
+                    <Link href="/admin/assessments">View Assessments</Link>
+                  </Button>
                 </div>
               )}
             </CardContent>

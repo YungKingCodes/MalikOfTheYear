@@ -9,23 +9,11 @@ import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { Search, Plus, Filter, Shuffle } from "lucide-react"
+import { Search, Filter } from "lucide-react"
 import { Progress } from "@/components/ui/progress"
 import { useSession } from "next-auth/react"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { getAllTeams, getIncompleteTeams, getTeamsInCaptainVoting } from "@/app/actions/teams"
 import { useToast } from "@/components/ui/use-toast"
-import { createTeam } from "@/app/actions/teams"
 import { LoadingSpinner } from "@/components/loading-skeletons/competition-detail-skeleton"
 
 interface Team {
@@ -112,11 +100,6 @@ export function TeamsTab() {
     loadVotingTeams()
   }, [])
 
-  const handleRandomizeTeams = () => {
-    // In a real implementation, this would call an API endpoint
-    alert("Teams would be randomized based on player scores")
-  }
-
   if (loading) {
     return <LoadingSpinner text="Loading teams..." />
   }
@@ -131,17 +114,6 @@ export function TeamsTab() {
         <div className="space-y-1">
           <h2 className="text-2xl font-bold tracking-tight">Teams</h2>
           <p className="text-muted-foreground">Manage teams, captains, and team members</p>
-        </div>
-        <div className="flex items-center gap-2">
-          {isAdmin && (
-            <>
-              <Button variant="outline" onClick={handleRandomizeTeams}>
-                <Shuffle className="h-4 w-4 mr-2" />
-                Randomize Teams
-              </Button>
-              <CreateTeamDialog />
-            </>
-          )}
         </div>
       </div>
 
@@ -430,145 +402,6 @@ function TeamCard({ team, isAdmin, teams }: { team: Team; isAdmin: boolean; team
         </div>
       </CardContent>
     </Card>
-  )
-}
-
-export function CreateTeamDialog() {
-  const [open, setOpen] = useState(false)
-  const [teamName, setTeamName] = useState("")
-  const [captainId, setCaptainId] = useState<string | undefined>(undefined)
-  const [loading, setLoading] = useState(false)
-  const [activeCompetitionId, setActiveCompetitionId] = useState<string | null>(null)
-  const [potentialCaptains, setPotentialCaptains] = useState<Array<{id: string, name: string, image: string | null}>>([])
-  const { toast } = useToast()
-
-  // Get active competition ID and potential captains
-  useEffect(() => {
-    async function loadData() {
-      try {
-        // Get active competition
-        const response = await fetch('/api/competitions/active')
-        const data = await response.json()
-        if (data.id) {
-          setActiveCompetitionId(data.id)
-        }
-
-        // Get potential captains (players without a team)
-        const playersResponse = await fetch('/api/players?withoutTeam=true')
-        const playersData = await playersResponse.json()
-        if (Array.isArray(playersData)) {
-          setPotentialCaptains(playersData)
-        }
-      } catch (error) {
-        console.error('Failed to load data:', error)
-      }
-    }
-    
-    if (open) {
-      loadData()
-    }
-  }, [open])
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    
-    if (!activeCompetitionId) {
-      toast({
-        title: "Error",
-        description: "No active competition found",
-        variant: "destructive"
-      })
-      return
-    }
-    
-    try {
-      setLoading(true)
-      
-      // Call the server action to create the team
-      const result = await createTeam(teamName, activeCompetitionId, captainId)
-      
-      toast({
-        title: "Success",
-        description: `Team "${teamName}" has been created`,
-      })
-      
-      // Reset form and close dialog
-      setTeamName("")
-      setCaptainId(undefined)
-      setOpen(false)
-      
-      // Reload page to show the new team
-      window.location.reload()
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to create team",
-        variant: "destructive"
-      })
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button>
-          <Plus className="h-4 w-4 mr-2" />
-          Create Team
-        </Button>
-      </DialogTrigger>
-      <DialogContent>
-        <form onSubmit={handleSubmit}>
-          <DialogHeader>
-            <DialogTitle>Create New Team</DialogTitle>
-            <DialogDescription>Add a new team to the current competition.</DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="team-name" className="text-right">
-                Team Name
-              </Label>
-              <Input
-                id="team-name"
-                value={teamName}
-                onChange={(e) => setTeamName(e.target.value)}
-                className="col-span-3"
-                required
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="captain" className="text-right">
-                Captain (Optional)
-              </Label>
-              <Select onValueChange={(value) => setCaptainId(value || undefined)}>
-                <SelectTrigger className="col-span-3">
-                  <SelectValue placeholder="Select a captain (optional)" />
-                </SelectTrigger>
-                <SelectContent>
-                  {potentialCaptains.length > 0 ? (
-                    potentialCaptains.map(captain => (
-                      <SelectItem key={captain.id} value={captain.id}>
-                        {captain.name || "Unknown Player"}
-                      </SelectItem>
-                    ))
-                  ) : (
-                    <SelectItem value="none" disabled>
-                      No available players
-                    </SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button type="submit" disabled={loading || !teamName}>
-              {loading ? "Creating..." : "Create Team"}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
   )
 }
 

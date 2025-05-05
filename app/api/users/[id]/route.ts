@@ -15,6 +15,11 @@ export async function GET(request: Request, { params }: { params: { id: string }
 
     const userId = params.id
 
+    // Get active competition
+    const activeCompetition = await db.competition.findFirst({
+      where: { status: "active" }
+    })
+
     // Fetch complete user data with relations
     const user = await db.user.findUnique({
       where: { 
@@ -82,6 +87,10 @@ export async function GET(request: Request, { params }: { params: { id: string }
       date: title.includes("'24") ? "2024-01-01T00:00:00Z" : "2023-01-01T00:00:00Z"
     }))
 
+    // Get user's proficiency data from the active competition
+    const activeUserCompetition = activeCompetition ? 
+      user.competitions.find(uc => uc.competitionId === activeCompetition.id) : null;
+
     // Construct response with complete player details
     const playerDetails = {
       id: user.id,
@@ -93,13 +102,13 @@ export async function GET(request: Request, { params }: { params: { id: string }
       role: user.role,
       teamId: user.teamId,
       teamName: teamName,
-      proficiencyScore: user.proficiencyScore || 0,
       wins: wins,
       losses: losses,
       titles: user.titles || [],
-      proficiencies: user.proficiencies || [],
       competitions: competitions,
       awards: awards,
+      proficiencyScore: activeUserCompetition?.proficiencyScore || 0,
+      proficiencies: activeUserCompetition?.proficiencies || [],
       createdAt: user.createdAt
     }
     

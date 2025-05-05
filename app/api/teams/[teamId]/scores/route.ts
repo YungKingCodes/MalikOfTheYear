@@ -108,7 +108,7 @@ export async function GET(
       }
       
       // Calculate final score - weight self-assessment at 40% and peer ratings at 60%
-      let finalScore = member.proficiencyScore || 0
+      let finalScore = 0
       
       if (memberSelfScores.length > 0 || memberPeerRatings.length > 0) {
         if (memberSelfScores.length > 0 && memberPeerRatings.length > 0) {

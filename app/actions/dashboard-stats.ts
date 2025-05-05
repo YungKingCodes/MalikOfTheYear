@@ -346,8 +346,7 @@ export async function getTeamData() {
             select: {
               id: true,
               name: true,
-              image: true,
-              proficiencyScore: true
+              image: true
             }
           },
           gameParticipations: {
@@ -379,8 +378,7 @@ export async function getTeamData() {
             select: {
               id: true,
               name: true,
-              image: true,
-              proficiencyScore: true
+              image: true
             }
           },
           gameParticipations: {

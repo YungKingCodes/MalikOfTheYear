@@ -126,7 +126,7 @@ export default function AdminPlayerScoresPage() {
     }
     
     // Calculate final score - weight self-assessment at 40% and peer ratings at 60%
-    let finalScore = user.proficiencyScore || 0
+    let finalScore = 0
     
     if (selfScores.length > 0 || peerScores.length > 0) {
       if (selfScores.length > 0 && peerScores.length > 0) {

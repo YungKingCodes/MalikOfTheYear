@@ -122,7 +122,6 @@ export default function TeamMembersPage({ params }: { params: { teamId: string }
       
       data.players.forEach((player: any) => {
         scoresMap[player.id] = {
-          proficiencyScore: player.proficiencyScore,
           position: player.position
         }
       })
@@ -609,13 +608,7 @@ export default function TeamMembersPage({ params }: { params: { teamId: string }
                       </div>
                     </TableCell>
                     <TableCell>
-                      {playerScores[member.id]?.proficiencyScore ? (
-                        <Badge variant="secondary" className="font-mono">
-                          {playerScores[member.id].proficiencyScore}
-                        </Badge>
-                      ) : (
-                        <span className="text-muted-foreground text-sm">Not scored</span>
-                      )}
+                      <span className="text-muted-foreground text-sm">Score Not Available</span>
                     </TableCell>
                     <TableCell>
                       {playerScores[member.id]?.position || member.position || (

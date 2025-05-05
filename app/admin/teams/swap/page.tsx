@@ -274,7 +274,7 @@ export default function SwapPlayersPage() {
       // Add player scores to the player objects if available
       const playersWithScores = data.members.map((player: any) => ({
         ...player,
-        score: playerScores[player.id] || player.proficiencyScore || 0
+        score: playerScores[player.id] || 0
       }))
       
       setAvailablePlayers(playersWithScores)
