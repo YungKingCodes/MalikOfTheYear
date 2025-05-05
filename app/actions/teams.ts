@@ -3,6 +3,8 @@
 import { db } from '@/lib/db'
 import { auth } from '@/auth'
 import { revalidatePath } from 'next/cache'
+import { getServerSession } from 'next-auth/next'
+import { authOptions } from '@/app/api/auth/[...nextauth]/route'
 
 /**
  * Updates the team captain
@@ -1111,4 +1113,91 @@ function findBestPlayerForTeamBalance(team: any, availablePlayers: any[]) {
   }
   
   return bestMatchIndex
+}
+
+/**
+ * Get the current user's team with detailed member information
+ */
+export async function getUserTeam() {
+  const session = await auth()
+  if (!session?.user) {
+    throw new Error("Not authenticated")
+  }
+
+  try {
+    // Get user's team ID
+    const user = await db.user.findUnique({
+      where: { id: session.user.id },
+      select: { teamId: true }
+    })
+
+    if (!user?.teamId) {
+      throw new Error("User not assigned to any team")
+    }
+
+    // Get team details with relations
+    const team = await db.team.findUnique({
+      where: { id: user.teamId },
+      include: {
+        captain: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            image: true
+          }
+        },
+        members: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            image: true
+          }
+        },
+        gameParticipations: {
+          where: {
+            game: {
+              status: "completed"
+            }
+          },
+          include: {
+            game: true
+          }
+        }
+      }
+    })
+
+    if (!team) {
+      throw new Error("Team not found")
+    }
+
+    // Calculate win rate
+    const winRate = team.gameParticipations.length > 0
+      ? Math.round((team.gameParticipations.filter(p => p.game.winnerId === team.id).length / team.gameParticipations.length) * 100)
+      : 0
+
+    // Transform members with games played
+    const memberStats = team.members.map(member => ({
+      id: member.id,
+      name: member.name,
+      email: member.email,
+      image: member.image,
+      gamesPlayed: team.gameParticipations.length,
+      isActive: true
+    }))
+
+    return {
+      id: team.id,
+      name: team.name,
+      score: team.score,
+      maxScore: team.maxScore,
+      winRate,
+      captain: team.captain,
+      members: memberStats
+    }
+  } catch (error) {
+    console.error("Error fetching user team:", error)
+    throw new Error("Failed to fetch team data")
+  }
 } 

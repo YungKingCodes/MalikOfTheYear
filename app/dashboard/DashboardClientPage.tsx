@@ -29,6 +29,8 @@ import { getCompetitions } from "@/app/actions/competitions"
 import { getUserCompetitionRegistrations } from "@/app/actions/competitions"
 import { DashboardLoading } from "@/components/dashboard/dashboard-loading"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { getUserTeam } from "@/app/actions/teams"
+import { MyTeamTab } from "@/components/dashboard/my-team-tab"
 
 // Define interface for competition
 interface Competition {
@@ -662,6 +664,8 @@ function PlayerDashboard({ user }: { user: any }) {
   const [selectedCompetitionId, setSelectedCompetitionId] = useState<string>("")
   const [selectedCompetition, setSelectedCompetition] = useState<Competition | null>(null)
   const [hasRegistrations, setHasRegistrations] = useState(true)
+  const [teamData, setTeamData] = useState<any>(null)
+  const [teamLoading, setTeamLoading] = useState(true)
   const router = useRouter()
   
   // Fetch available competitions - only show registered ones
@@ -719,6 +723,22 @@ function PlayerDashboard({ user }: { user: any }) {
     }
     
     loadProfile()
+  }, [])
+
+  useEffect(() => {
+    const loadTeamData = async () => {
+      try {
+        setTeamLoading(true)
+        const data = await getUserTeam()
+        setTeamData(data)
+      } catch (error) {
+        console.error("Error loading team data:", error)
+      } finally {
+        setTeamLoading(false)
+      }
+    }
+    
+    loadTeamData()
   }, [])
   
   function handleCompetitionChange(value: string) {
@@ -885,7 +905,7 @@ function PlayerDashboard({ user }: { user: any }) {
         </TabsContent>
 
         <TabsContent value="team" className="space-y-4 animate-in slide-in-from-left-4 duration-300">
-          <TeamsTab />
+          <MyTeamTab />
         </TabsContent>
 
         <TabsContent value="games" className="space-y-4 animate-in slide-in-from-left-4 duration-300">
