@@ -6,6 +6,7 @@ import { CalendarDays, CheckCircle, Clock, Target, Crown, UserPlus, Check, Edit 
 import { useState, useEffect } from "react"
 import { getCompetitionTimeline } from "@/app/actions/dashboard-stats"
 import { isUserRegisteredForCompetition } from "@/app/actions/competitions"
+import { getUserTeam } from "@/app/actions/teams"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Progress } from "@/components/ui/progress"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -24,6 +25,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input"
 import Link from "next/link"
 import { getExistingPlayerRatingsForPhase, getPlayerRatingDetails } from "@/app/actions/player-scores"
+import { useToast } from "@/components/ui/use-toast"
 
 interface Player {
   id: string;
@@ -436,10 +438,12 @@ function CaptainVotingButton({ phaseId }: { phaseId: string }) {
   const [teamMembers, setTeamMembers] = useState<any[]>([])
   const [selectedCaptainId, setSelectedCaptainId] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [status, setStatus] = useState<string>('idle')
+  const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
   const [userTeam, setUserTeam] = useState<any>(null)
   const [hasVoted, setHasVoted] = useState(false)
   const [votedCaptain, setVotedCaptain] = useState<any>(null)
+  const [isChangingVote, setIsChangingVote] = useState(false)
+  const { toast } = useToast()
   
   // Fetch team data when dialog opens
   useEffect(() => {
@@ -447,49 +451,31 @@ function CaptainVotingButton({ phaseId }: { phaseId: string }) {
       if (open) {
         setStatus('loading');
         try {
-          // First get the current user's team
-          const teamResponse = await fetch('/api/users/me/team', {
-            method: 'GET',
-            headers: { 'Content-Type': 'application/json' },
-          });
+          // Get user's team data
+          const teamData = await getUserTeam();
           
-          if (!teamResponse.ok) {
-            throw new Error('Failed to fetch team data');
-          }
-          
-          const teamData = await teamResponse.json();
-          
-          if (!teamData.team) {
+          if (!teamData) {
             setStatus('error');
+            toast({
+              title: "Error",
+              description: "Failed to fetch team data. Please try again later.",
+              variant: "destructive"
+            });
             return;
           }
           
-          setUserTeam(teamData.team);
-          
-          // Then fetch team members
-          const membersResponse = await fetch(`/api/teams/${teamData.team.id}/members`, {
-            method: 'GET',
-            headers: { 'Content-Type': 'application/json' },
-          });
-          
-          if (!membersResponse.ok) {
-            throw new Error('Failed to fetch team members');
-          }
-          
-          const membersData = await membersResponse.json();
-          setTeamMembers(membersData.members || []);
+          setUserTeam(teamData);
+          setTeamMembers(teamData.members || []);
           
           // Check if user has already voted
-          const votingResponse = await fetch(`/api/captain-voting/${phaseId}/my-vote`, {
-            method: 'GET',
-            headers: { 'Content-Type': 'application/json' },
-          });
+          const votingResponse = await fetch(`/api/captain-voting/${phaseId}/my-vote`);
           
           if (votingResponse.ok) {
             const votingData = await votingResponse.json();
             if (votingData.vote) {
               setHasVoted(true);
-              setVotedCaptain(membersData.members.find((m: any) => m.id === votingData.vote.captainId));
+              setVotedCaptain(teamData.members.find((m: any) => m.id === votingData.vote.captainId));
+              setSelectedCaptainId(votingData.vote.captainId);
             }
           }
           
@@ -497,15 +483,20 @@ function CaptainVotingButton({ phaseId }: { phaseId: string }) {
         } catch (error) {
           console.error('Error fetching team data:', error);
           setStatus('error');
+          toast({
+            title: "Error",
+            description: "Failed to load team data. Please try again later.",
+            variant: "destructive"
+          });
         }
       }
     }
     
     fetchTeamData();
-  }, [open, phaseId]);
+  }, [open, phaseId, toast]);
   
   const handleVoteSubmit = async () => {
-    if (!selectedCaptainId) return;
+    if (!selectedCaptainId || !userTeam) return;
     
     setIsSubmitting(true);
     setStatus('loading');
@@ -522,28 +513,45 @@ function CaptainVotingButton({ phaseId }: { phaseId: string }) {
       });
       
       if (!response.ok) {
-        throw new Error('Failed to submit captain vote');
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to submit captain vote');
       }
       
       setStatus('success');
       setHasVoted(true);
       setVotedCaptain(teamMembers.find(m => m.id === selectedCaptainId));
-      setTimeout(() => setOpen(false), 1500); // Correct setTimeout usage
+      setIsChangingVote(false);
+      
+      toast({
+        title: "Success",
+        description: hasVoted ? "Your vote has been updated successfully." : "Your vote has been recorded successfully.",
+      });
+      
+      setTimeout(() => setOpen(false), 1500);
     } catch (error) {
       console.error('Error submitting captain vote:', error);
       setStatus('error');
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to submit vote. Please try again.",
+        variant: "destructive"
+      });
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  const handleChangeVote = () => {
+    setIsChangingVote(true);
+    setStatus('idle');
+  };
   
-  // Actual JSX for CaptainVotingButton
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button variant="outline" size="sm" className="flex items-center gap-1.5">
           <Crown className="h-3.5 w-3.5" />
-          <span>{hasVoted ? 'View Your Vote' : 'Vote for Captain'}</span>
+          <span>{hasVoted ? 'View/Change Vote' : 'Vote for Captain'}</span>
         </Button>
       </DialogTrigger>
       
@@ -551,7 +559,7 @@ function CaptainVotingButton({ phaseId }: { phaseId: string }) {
         <DialogHeader>
           <DialogTitle>Team Captain Voting</DialogTitle>
           <DialogDescription>
-            {hasVoted 
+            {hasVoted && !isChangingVote 
               ? 'You have already voted for a team captain.' 
               : 'Select a team member who you think would be the best captain.'}
           </DialogDescription>
@@ -559,13 +567,14 @@ function CaptainVotingButton({ phaseId }: { phaseId: string }) {
         
         {status === 'loading' ? (
           <div className="py-6 text-center">
+            <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
             <p className="text-sm text-muted-foreground">Loading team members...</p>
           </div>
         ) : status === 'error' ? (
           <div className="py-6 text-center">
             <p className="text-sm text-destructive">Error loading team data. Please try again later.</p>
           </div>
-        ) : hasVoted ? (
+        ) : hasVoted && !isChangingVote ? (
           <div className="py-4">
             <Card>
               <CardHeader className="pb-3">
@@ -579,10 +588,15 @@ function CaptainVotingButton({ phaseId }: { phaseId: string }) {
                   </Avatar>
                   <div>
                     <p className="text-sm font-medium">{votedCaptain?.name}</p>
-                    <p className="text-xs text-muted-foreground">{votedCaptain?.position || 'Team Member'}</p>
+                    <p className="text-xs text-muted-foreground">Team Member</p>
                   </div>
                 </div>
               </CardContent>
+              <CardFooter>
+                <Button onClick={handleChangeVote} variant="outline" className="w-full">
+                  Change Vote
+                </Button>
+              </CardFooter>
             </Card>
           </div>
         ) : (
@@ -606,7 +620,7 @@ function CaptainVotingButton({ phaseId }: { phaseId: string }) {
                       </Avatar>
                       <div>
                         <p className="text-sm font-medium leading-none">{member.name}</p>
-                        <p className="text-xs text-muted-foreground">{member.position || 'Team Member'}</p>
+                        <p className="text-xs text-muted-foreground">Team Member</p>
                       </div>
                     </Label>
                   </div>
@@ -620,9 +634,18 @@ function CaptainVotingButton({ phaseId }: { phaseId: string }) {
                 disabled={isSubmitting || !selectedCaptainId}
                 className="w-full"
               >
-                {status === 'loading' ? 'Submitting...' : 
-                 status === 'success' ? 'Vote Submitted!' : 
-                 status === 'error' ? 'Try Again' : 'Submit Vote'}
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Submitting...
+                  </>
+                ) : status === 'success' ? (
+                  'Vote Submitted!'
+                ) : status === 'error' ? (
+                  'Try Again'
+                ) : (
+                  hasVoted ? 'Update Vote' : 'Submit Vote'
+                )}
               </Button>
             </DialogFooter>
           </>
