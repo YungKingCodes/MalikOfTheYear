@@ -147,9 +147,13 @@ export function PlayersTab() {
                         </div>
                         <div>
                           {player.titles && player.titles.length > 0 && (
-                            <Badge variant="secondary" className="text-xs">
-                              {player.titles[0]}
-                            </Badge>
+                            <div className="flex gap-1">
+                              {player.titles.map((title, index) => (
+                                <Badge key={`${player._id}-title-${index}`} variant="secondary" className="text-xs">
+                                  {title}
+                                </Badge>
+                              ))}
+                            </div>
                           )}
                         </div>
                         <div>
@@ -215,9 +219,13 @@ export function PlayersTab() {
                           </div>
                           <div>
                             {player.titles && player.titles.length > 0 && (
-                              <Badge variant="secondary" className="text-xs">
-                                {player.titles[0]}
-                              </Badge>
+                              <div className="flex gap-1">
+                                {player.titles.map((title, index) => (
+                                  <Badge key={`${player._id}-title-${index}`} variant="secondary" className="text-xs">
+                                    {title}
+                                  </Badge>
+                                ))}
+                              </div>
                             )}
                           </div>
                           <div>
@@ -294,9 +302,13 @@ export function PlayersTab() {
                           </div>
                           <div>
                             {player.titles && player.titles.length > 0 && (
-                              <Badge variant="secondary" className="text-xs">
-                                {player.titles[0]}
-                              </Badge>
+                              <div className="flex gap-1">
+                                {player.titles.map((title, index) => (
+                                  <Badge key={`${player._id}-title-${index}`} variant="secondary" className="text-xs">
+                                    {title}
+                                  </Badge>
+                                ))}
+                              </div>
                             )}
                           </div>
                           <div className="flex justify-end gap-2">
@@ -364,11 +376,15 @@ export function PlayersTab() {
                                     : "Unassigned"}
                           </div>
                           <div>
-                            {player.titles.map((title, index) => (
-                              <Badge key={index} variant="secondary" className="text-xs mr-1">
-                                {title}
-                              </Badge>
-                            ))}
+                            {player.titles && player.titles.length > 0 && (
+                              <div className="flex gap-1">
+                                {player.titles.map((title, index) => (
+                                  <Badge key={`${player._id}-title-${index}`} variant="secondary" className="text-xs">
+                                    {title}
+                                  </Badge>
+                                ))}
+                              </div>
+                            )}
                           </div>
                           <div className="text-sm">{player.titles[0].includes("'24") ? "2024" : "2023"}</div>
                           <div className="flex justify-end gap-2">

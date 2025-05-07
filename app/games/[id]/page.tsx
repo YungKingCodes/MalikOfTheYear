@@ -1,3 +1,5 @@
+"use client"
+
 import type { Metadata } from "next"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -6,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, Calendar, MapPin, Trophy } from "lucide-react"
 import { GamePlayerAssignment } from "@/components/game-player-assignment"
 import { GameReviewButton } from "@/components/games/game-review-button"
+import { use } from "react"
 
 export const metadata: Metadata = {
   title: "Game Details | Malik of The Year",
@@ -50,7 +53,8 @@ const getGameDetails = (id: string) => {
 }
 
 export default function GameDetailsPage({ params }: { params: { id: string } }) {
-  const game = getGameDetails(params.id)
+  const gameId = use(Promise.resolve(params.id))
+  const game = getGameDetails(gameId)
 
   return (
     <div className="container py-8 space-y-8 animate-in fade-in-50 duration-500">
@@ -78,7 +82,7 @@ export default function GameDetailsPage({ params }: { params: { id: string } }) 
 
           <div className="flex gap-2">
             <Button className="bg-primary hover:bg-primary/90">View Schedule</Button>
-            <GameReviewButton gameId={params.id} gameStatus={game.status} />
+            <GameReviewButton gameId={gameId} />
           </div>
         </div>
 

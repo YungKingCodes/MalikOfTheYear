@@ -25,7 +25,7 @@ import {
 import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/components/ui/use-toast"
-import { AlertCircle, ChevronRight, Edit, Plus, Trash, UserPlus, Users, Shuffle } from "lucide-react"
+import { AlertCircle, ChevronRight, Edit, Plus, Trash, UserPlus, Users, Shuffle, RefreshCw } from "lucide-react"
 import { createTeam } from "@/app/actions/teams"
 import { getCompetitions } from "@/app/actions/competitions"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -51,6 +51,11 @@ export default function TeamsAdminPage() {
   const [isRandomizing, setIsRandomizing] = useState(false)
   const [showPlayerScores, setShowPlayerScores] = useState(true)
   const [randomizationMode, setRandomizationMode] = useState<"create" | "rebalance">("create")
+  const [isDeleting, setIsDeleting] = useState<string | null>(null)
+  const [isResettingVoting, setIsResettingVoting] = useState<string | null>(null)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [resetVotingDialogOpen, setResetVotingDialogOpen] = useState(false)
+  const [selectedTeam, setSelectedTeam] = useState<any>(null)
 
   useEffect(() => {
     async function loadData() {
@@ -285,6 +290,85 @@ export default function TeamsAdminPage() {
     }
   }
 
+  const handleDeleteClick = (team: any) => {
+    setSelectedTeam(team)
+    setDeleteDialogOpen(true)
+  }
+
+  const handleResetVotingClick = (team: any) => {
+    setSelectedTeam(team)
+    setResetVotingDialogOpen(true)
+  }
+
+  const handleDeleteTeam = async () => {
+    if (!selectedTeam) return
+
+    setIsDeleting(selectedTeam.id)
+    try {
+      const response = await fetch(`/api/teams/${selectedTeam.id}`, {
+        method: 'DELETE',
+        credentials: "include"
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to delete team")
+      }
+
+      // Refresh the teams list
+      await loadTeamsForCompetition(selectedCompetitionId, true)
+      
+      toast({
+        title: "Team deleted",
+        description: "The team has been deleted successfully."
+      })
+    } catch (error) {
+      console.error("Failed to delete team:", error)
+      toast({
+        title: "Error deleting team",
+        description: error instanceof Error ? error.message : "Could not delete the team. Please try again.",
+        variant: "destructive"
+      })
+    } finally {
+      setIsDeleting(null)
+      setDeleteDialogOpen(false)
+      setSelectedTeam(null)
+    }
+  }
+
+  const handleResetCaptainVoting = async () => {
+    if (!selectedTeam) return
+
+    setIsResettingVoting(selectedTeam.id)
+    try {
+      const response = await fetch(`/api/teams/${selectedTeam.id}/reset-captain-voting`, {
+        method: 'POST',
+        credentials: "include"
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to reset captain voting")
+      }
+
+      toast({
+        title: "Captain voting reset",
+        description: "Captain voting has been reset successfully."
+      })
+    } catch (error) {
+      console.error("Failed to reset captain voting:", error)
+      toast({
+        title: "Error resetting captain voting",
+        description: error instanceof Error ? error.message : "Could not reset captain voting. Please try again.",
+        variant: "destructive"
+      })
+    } finally {
+      setIsResettingVoting(null)
+      setResetVotingDialogOpen(false)
+      setSelectedTeam(null)
+    }
+  }
+
   if (loading && !competitions.length) {
     return (
       <div className="p-6 space-y-6">
@@ -391,6 +475,24 @@ export default function TeamsAdminPage() {
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-2">
+                    <Button 
+                      variant="ghost" 
+                      size="icon"
+                      onClick={() => handleResetVotingClick(team)}
+                      disabled={isResettingVoting === team.id}
+                      title="Reset Captain Voting"
+                    >
+                      <RefreshCw className={`h-4 w-4 ${isResettingVoting === team.id ? 'animate-spin' : ''}`} />
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="icon"
+                      onClick={() => handleDeleteClick(team)}
+                      disabled={isDeleting === team.id}
+                      title="Delete Team"
+                    >
+                      <Trash className={`h-4 w-4 ${isDeleting === team.id ? 'animate-spin' : ''}`} />
+                    </Button>
                     <Button variant="ghost" size="icon" asChild>
                       <Link href={`/admin/teams/${team.id}`}>
                         <ChevronRight className="h-4 w-4" />
@@ -560,6 +662,65 @@ export default function TeamsAdminPage() {
                 (randomizationMode === "create" ? "Creating..." : "Rebalancing...") : 
                 (randomizationMode === "create" ? "Create Teams" : "Rebalance Teams")
               }
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Team</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete the team "{selectedTeam?.name}"? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDeleteDialogOpen(false)
+                setSelectedTeam(null)
+              }}
+              disabled={isDeleting === selectedTeam?.id}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteTeam}
+              disabled={isDeleting === selectedTeam?.id}
+            >
+              {isDeleting === selectedTeam?.id ? "Deleting..." : "Delete Team"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={resetVotingDialogOpen} onOpenChange={setResetVotingDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reset Captain Voting</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to reset captain voting for the team "{selectedTeam?.name}"? This will clear all existing votes.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setResetVotingDialogOpen(false)
+                setSelectedTeam(null)
+              }}
+              disabled={isResettingVoting === selectedTeam?.id}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleResetCaptainVoting}
+              disabled={isResettingVoting === selectedTeam?.id}
+            >
+              {isResettingVoting === selectedTeam?.id ? "Resetting..." : "Reset Voting"}
             </Button>
           </DialogFooter>
         </DialogContent>

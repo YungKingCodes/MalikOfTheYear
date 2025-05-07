@@ -23,7 +23,8 @@ import {
   Plus, 
   RefreshCw,
   Search,
-  UserCog
+  UserCog,
+  UserMinus
 } from "lucide-react"
 import { getCompetitions } from "@/app/actions/competitions"
 import { 
@@ -48,6 +49,8 @@ export default function PlayersAdminPage() {
   const [editedProficiencyScore, setEditedProficiencyScore] = useState<number>(0)
   const [isGeneratingScores, setIsGeneratingScores] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [unregisterDialogOpen, setUnregisterDialogOpen] = useState(false)
+  const [isUnregistering, setIsUnregistering] = useState(false)
 
   useEffect(() => {
     async function loadData() {
@@ -219,6 +222,53 @@ export default function PlayersAdminPage() {
     }
   }
 
+  const handleUnregisterClick = (player: any) => {
+    setCurrentPlayer(player)
+    setUnregisterDialogOpen(true)
+  }
+
+  const handleUnregister = async () => {
+    if (!currentPlayer || !selectedCompetitionId) return
+
+    setIsUnregistering(true)
+    try {
+      const response = await fetch(`/api/players/${currentPlayer.user.id}/unregister`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          competitionId: selectedCompetitionId
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to unregister player")
+      }
+
+      // Refresh the players list
+      await loadPlayersForCompetition(selectedCompetitionId)
+      
+      setUnregisterDialogOpen(false)
+      
+      toast({
+        title: "Player unregistered",
+        description: `${currentPlayer.user.name} has been removed from the competition.`
+      })
+    } catch (error) {
+      console.error("Failed to unregister player:", error)
+      toast({
+        title: "Error unregistering player",
+        description: error instanceof Error ? error.message : "Could not unregister player. Please try again.",
+        variant: "destructive"
+      })
+    } finally {
+      setIsUnregistering(false)
+      setCurrentPlayer(null)
+    }
+  }
+
   // Filter players by search query
   const filteredPlayers = searchQuery
     ? players.filter(player => 
@@ -333,13 +383,24 @@ export default function PlayersAdminPage() {
                     </div>
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button 
-                      variant="ghost" 
-                      size="icon"
-                      onClick={() => handleEditClick(player)}
-                    >
-                      <UserCog className="h-4 w-4" />
-                    </Button>
+                    <div className="flex justify-end gap-2">
+                      <Button 
+                        variant="ghost" 
+                        size="icon"
+                        onClick={() => handleEditClick(player)}
+                        title="Edit Player"
+                      >
+                        <UserCog className="h-4 w-4" />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="icon"
+                        onClick={() => handleUnregisterClick(player)}
+                        title="Unregister Player"
+                      >
+                        <UserMinus className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))
@@ -397,6 +458,36 @@ export default function PlayersAdminPage() {
               disabled={isSaving}
             >
               {isSaving ? "Saving..." : "Save Changes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={unregisterDialogOpen} onOpenChange={setUnregisterDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Unregister Player</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to remove {currentPlayer?.user.name} from this competition? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setUnregisterDialogOpen(false)
+                setCurrentPlayer(null)
+              }}
+              disabled={isUnregistering}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleUnregister}
+              disabled={isUnregistering}
+            >
+              {isUnregistering ? "Removing..." : "Remove Player"}
             </Button>
           </DialogFooter>
         </DialogContent>

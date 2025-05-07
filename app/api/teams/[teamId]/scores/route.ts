@@ -7,6 +7,23 @@ export async function GET(
   { params }: { params: { teamId: string } }
 ) {
   try {
+    if (!params.teamId) {
+      return new Response("Team ID is required", { status: 400 })
+    }
+
+    const teamId = params.teamId
+    
+    // Get competition ID from query params
+    const { searchParams } = new URL(request.url)
+    const competitionId = searchParams.get('competitionId')
+    
+    if (!competitionId) {
+      return NextResponse.json(
+        { error: "Competition ID is required" },
+        { status: 400 }
+      )
+    }
+
     // Authenticate user
     const session = await auth()
     if (!session?.user?.id) {
@@ -21,19 +38,6 @@ export async function GET(
       return NextResponse.json(
         { error: "Unauthorized: Only admins and team captains can view team scores" },
         { status: 403 }
-      )
-    }
-
-    const teamId = params.teamId
-    
-    // Get competition ID from query params
-    const { searchParams } = new URL(request.url)
-    const competitionId = searchParams.get('competitionId')
-    
-    if (!competitionId) {
-      return NextResponse.json(
-        { error: "Competition ID is required" },
-        { status: 400 }
       )
     }
 
