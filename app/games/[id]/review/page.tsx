@@ -1,13 +1,7 @@
 "use client"
 
 import { use } from "react"
-import type { Metadata } from "next"
 import { CaptainGameReview } from "@/components/games/captain-game-review"
-
-export const metadata: Metadata = {
-  title: "Game Review | Malik of The Year",
-  description: "Review player performance for Malik of The Year competition",
-}
 
 export default function GameReviewPage({ params }: { params: { id: string } }) {
   const gameId = use(Promise.resolve(params.id))

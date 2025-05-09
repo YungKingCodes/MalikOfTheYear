@@ -1,6 +1,5 @@
 "use client"
 
-import type { Metadata } from "next"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -9,11 +8,6 @@ import { ArrowLeft, Calendar, MapPin, Trophy } from "lucide-react"
 import { GamePlayerAssignment } from "@/components/game-player-assignment"
 import { GameReviewButton } from "@/components/games/game-review-button"
 import { use } from "react"
-
-export const metadata: Metadata = {
-  title: "Game Details | Malik of The Year",
-  description: "Game details for Malik of The Year competition",
-}
 
 // This would normally come from a database
 const getGameDetails = (id: string) => {
