@@ -1,7 +1,7 @@
 "use client"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { CalendarDays, Users, Award, Activity, Crown, Medal, Star, Trophy, Shield, CalendarX } from "lucide-react"
+import { CalendarDays, Users, Award, Activity, Crown, Medal, Star, Trophy, Shield, CalendarX, Loader2 } from "lucide-react"
 import { DashboardHeader } from "@/components/dashboard/dashboard-header"
 import { TeamOverview } from "@/components/dashboard/team-overview"
 import { RecentGames } from "@/components/dashboard/recent-games"
@@ -31,6 +31,7 @@ import { DashboardLoading } from "@/components/dashboard/dashboard-loading"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { getUserTeam } from "@/app/actions/teams"
 import { MyTeamTab } from "@/components/dashboard/my-team-tab"
+import { useToast } from "@/components/ui/use-toast"
 
 // Define interface for competition
 interface Competition {
@@ -46,6 +47,7 @@ function AdminDashboard() {
   const [competitions, setCompetitions] = useState<Competition[]>([])
   const [selectedCompetitionId, setSelectedCompetitionId] = useState<string>("")
   const [selectedCompetition, setSelectedCompetition] = useState<Competition | null>(null)
+  const { toast } = useToast()
   
   // Fetch available competitions - admin sees all
   useEffect(() => {
@@ -74,18 +76,18 @@ function AdminDashboard() {
     fetchCompetitions();
   }, []);
   
-  useEffect(() => {
-    const loadStats = async () => {
-      try {
-        const stats = await getDashboardStats(selectedCompetitionId)
-        setDashboardStats(stats)
-      } catch (error) {
-        console.error("Error loading dashboard stats:", error)
-      } finally {
-        setLoading(false)
-      }
+  const loadStats = async () => {
+    try {
+      const stats = await getDashboardStats(selectedCompetitionId)
+      setDashboardStats(stats)
+    } catch (error) {
+      console.error("Error loading dashboard stats:", error)
+    } finally {
+      setLoading(false)
     }
-    
+  }
+  
+  useEffect(() => {
     if (selectedCompetitionId) {
       loadStats()
     }

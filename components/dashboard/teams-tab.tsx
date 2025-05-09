@@ -41,6 +41,7 @@ export function TeamsTab() {
   const { data: session } = useSession()
   const user = session?.user
   const isAdmin = user?.role === "admin"
+  const { toast } = useToast()
 
   // Error handling utility
   const handleAsyncError = (err: any, errorSetter: React.Dispatch<React.SetStateAction<string | null>>, defaultMessage: string) => {
@@ -48,53 +49,51 @@ export function TeamsTab() {
     errorSetter(err instanceof Error ? err.message : defaultMessage);
   };
 
-  useEffect(() => {
-    async function loadTeams() {
-      // Load all teams
-      try {
-        setLoading(true)
-        const teamsData = await getAllTeams()
-        if (Array.isArray(teamsData)) {
-          const typedTeams = teamsData.map(team => ({
-            ...team,
-            members: team.members || []
-          }))
-          setTeams(typedTeams)
-          setError(null)
-        } else {
-          setTeams([])
-          setError("Invalid data format received from server")
-          console.error("Invalid teams data format:", teamsData)
-        }
-      } catch (err) {
-        handleAsyncError(err, setError, "Failed to load teams. Please try again later.")
+  const loadTeams = async () => {
+    try {
+      setLoading(true)
+      const teamsData = await getAllTeams()
+      if (Array.isArray(teamsData)) {
+        const typedTeams = teamsData.map(team => ({
+          ...team,
+          members: team.members || []
+        }))
+        setTeams(typedTeams)
+        setError(null)
+      } else {
         setTeams([])
-      } finally {
-        setLoading(false)
+        setError("Invalid data format received from server")
+        console.error("Invalid teams data format:", teamsData)
       }
+    } catch (err) {
+      handleAsyncError(err, setError, "Failed to load teams. Please try again later.")
+      setTeams([])
+    } finally {
+      setLoading(false)
     }
+  }
 
-    async function loadVotingTeams() {
-      // Load voting teams separately
-      try {
-        setVotingTeamsLoading(true)
-        const votingTeamsData = await getTeamsInCaptainVoting()
-        if (Array.isArray(votingTeamsData)) {
-          setVotingTeams(votingTeamsData)
-          setVotingTeamsError(null)
-        } else {
-          setVotingTeams([])
-          setVotingTeamsError("Invalid data format for voting teams")
-          console.error("Invalid voting teams data format:", votingTeamsData)
-        }
-      } catch (err) {
-        handleAsyncError(err, setVotingTeamsError, "Failed to load teams in voting")
+  const loadVotingTeams = async () => {
+    try {
+      setVotingTeamsLoading(true)
+      const votingTeamsData = await getTeamsInCaptainVoting()
+      if (Array.isArray(votingTeamsData)) {
+        setVotingTeams(votingTeamsData)
+        setVotingTeamsError(null)
+      } else {
         setVotingTeams([])
-      } finally {
-        setVotingTeamsLoading(false)
+        setVotingTeamsError("Invalid data format for voting teams")
+        console.error("Invalid voting teams data format:", votingTeamsData)
       }
+    } catch (err) {
+      handleAsyncError(err, setVotingTeamsError, "Failed to load teams in voting")
+      setVotingTeams([])
+    } finally {
+      setVotingTeamsLoading(false)
     }
+  }
 
+  useEffect(() => {
     // Load data independently to prevent one failure affecting the other
     loadTeams()
     loadVotingTeams()
@@ -275,17 +274,16 @@ export function TeamsTab() {
                 <div className="space-y-8">
                   <div className="rounded-md border overflow-x-auto">
                     <div className="min-w-[700px]">
-                      <div className="grid grid-cols-5 p-4 font-medium">
+                      <div className="grid grid-cols-4 p-4 font-medium">
                         <div>Team</div>
                         <div>Members</div>
                         <div>Votes Cast</div>
                         <div>Status</div>
-                        <div className="text-right">Actions</div>
                       </div>
                       <div className="divide-y">
                         {votingTeams.length > 0 ? (
                           votingTeams.map((team) => (
-                            <div key={team._id} className="grid grid-cols-5 p-4 items-center">
+                            <div key={team._id} className="grid grid-cols-4 p-4 items-center">
                               <div className="flex items-center gap-3">
                                 <Avatar className="h-8 w-8">
                                   <AvatarImage
@@ -307,18 +305,6 @@ export function TeamsTab() {
                                 >
                                   {team.votingPercentage === 100 ? "Complete" : "In Progress"}
                                 </Badge>
-                              </div>
-                              <div className="flex justify-end gap-2">
-                                {isAdmin && (
-                                  <>
-                                    <Button variant="outline" size="sm">
-                                      View Votes
-                                    </Button>
-                                    <Button variant="ghost" size="sm">
-                                      Finalize
-                                    </Button>
-                                  </>
-                                )}
                               </div>
                             </div>
                           ))

@@ -15,8 +15,14 @@ export async function POST(request: Request) {
 
     // Parse request body
     const body = await request.json()
-    const { phaseId } = body
+    const { phaseId, teamId, selectedCaptainId } = body
 
+    // If teamId and selectedCaptainId are provided, handle single team captain assignment
+    if (teamId && selectedCaptainId) {
+      return await handleSingleTeamCaptainAssignment(teamId, selectedCaptainId)
+    }
+    
+    // Otherwise, proceed with bulk assignment for the entire phase
     if (!phaseId) {
       return NextResponse.json(
         { error: "Missing required phaseId" },
@@ -133,6 +139,58 @@ export async function POST(request: Request) {
     console.error("Error concluding captain voting:", error)
     return NextResponse.json(
       { error: "Failed to conclude captain voting" },
+      { status: 500 }
+    )
+  }
+}
+
+// Helper function to handle single team captain assignment
+async function handleSingleTeamCaptainAssignment(teamId: string, captainId: string) {
+  try {
+    // Verify the team exists
+    const team = await db.team.findUnique({
+      where: { id: teamId },
+      include: { members: true }
+    })
+
+    if (!team) {
+      return NextResponse.json(
+        { error: "Team not found" },
+        { status: 404 }
+      )
+    }
+
+    // Check if captain is in the team
+    const captainInTeam = team.members.some(member => member.id === captainId)
+    if (!captainInTeam) {
+      return NextResponse.json(
+        { error: "The selected captain is not a member of this team" },
+        { status: 400 }
+      )
+    }
+
+    // Update the team with the new captain
+    await db.team.update({
+      where: { id: teamId },
+      data: { captainId }
+    })
+
+    // Update the user's role to captain
+    await db.user.update({
+      where: { id: captainId },
+      data: { role: 'captain' }
+    })
+
+    return NextResponse.json({ 
+      success: true, 
+      message: "Captain has been assigned successfully",
+      teamId,
+      captainId
+    })
+  } catch (error) {
+    console.error("Error assigning team captain:", error)
+    return NextResponse.json(
+      { error: "Failed to assign team captain" },
       { status: 500 }
     )
   }

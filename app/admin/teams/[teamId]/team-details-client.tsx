@@ -77,6 +77,11 @@ export function TeamDetailsClient({ teamId }: { teamId: string }) {
   const [confirmJoinDialogOpen, setConfirmJoinDialogOpen] = useState(false)
   const [teamScores, setTeamScores] = useState<any>(null)
   const [scoresLoading, setScoresLoading] = useState(false)
+  const [captainVotingDialogOpen, setCaptainVotingDialogOpen] = useState(false)
+  const [votingData, setVotingData] = useState<any>(null)
+  const [isLoadingVotes, setIsLoadingVotes] = useState(false)
+  const [isAssigningCaptain, setIsAssigningCaptain] = useState(false)
+  const [isInCaptainVoting, setIsInCaptainVoting] = useState(false)
   
   // Get the current user's ID
   const currentUserId = session?.user?.id
@@ -86,6 +91,9 @@ export function TeamDetailsClient({ teamId }: { teamId: string }) {
   
   // Check if current user is the captain
   const isCaptain = team?.captain?.id === currentUserId
+  
+  // Check if admin can view votes (either no captain or in voting process)
+  const canViewVotes = session?.user?.role === 'admin' && team?.members?.length > 0 && !team?.captain
   
   // Initialize form
   const form = useForm<TeamFormValues>({
@@ -119,6 +127,17 @@ export function TeamDetailsClient({ teamId }: { teamId: string }) {
         // Load team scores if we have a competition ID
         if (teamData.competitionId) {
           loadTeamScores(teamData.competitionId)
+        }
+        
+        // Check if team is in captain voting
+        try {
+          const response = await fetch(`/api/captain-voting/status/${teamId}`)
+          if (response.ok) {
+            const data = await response.json()
+            setIsInCaptainVoting(data.isInCaptainVoting)
+          }
+        } catch (error) {
+          console.error("Error checking captain voting status:", error)
         }
       } catch (error) {
         console.error("Error loading data:", error)
@@ -254,6 +273,102 @@ export function TeamDetailsClient({ teamId }: { teamId: string }) {
       })
     } finally {
       setIsJoiningTeam(false)
+    }
+  }
+  
+  const handleViewVotes = async () => {
+    setIsLoadingVotes(true);
+    try {
+      const response = await fetch(`/api/captain-voting/votes/${teamId}`);
+      
+      // If the API exists and returns data successfully
+      if (response.ok) {
+        const data = await response.json();
+        setVotingData(data);
+      } else {
+        // If API errors or doesn't exist, create a fallback data structure
+        // showing team members with zero votes
+        console.log("Creating fallback voting data for team members");
+        const fallbackVotes = team.members.map((member: any) => ({
+          playerId: member.id,
+          playerName: member.name,
+          playerImage: member.image,
+          voteCount: 0
+        }));
+        
+        setVotingData({
+          votes: fallbackVotes,
+          totalVotes: 0,
+          votingPercentage: 0
+        });
+      }
+      
+      setCaptainVotingDialogOpen(true);
+    } catch (error) {
+      console.error('Error fetching voting data:', error);
+      
+      // Create fallback data on any error
+      const fallbackVotes = team.members.map((member: any) => ({
+        playerId: member.id,
+        playerName: member.name,
+        playerImage: member.image,
+        voteCount: 0
+      }));
+      
+      setVotingData({
+        votes: fallbackVotes,
+        totalVotes: 0,
+        votingPercentage: 0
+      });
+      
+      setCaptainVotingDialogOpen(true);
+      
+      toast({
+        title: "Warning",
+        description: "Couldn't fetch voting data. Showing team members instead.",
+        variant: "default"
+      });
+    } finally {
+      setIsLoadingVotes(false);
+    }
+  };
+
+  const handleAssignCaptain = async (playerId: string) => {
+    setIsAssigningCaptain(true)
+    try {
+      const response = await fetch('/api/captain-voting/conclude', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          teamId,
+          selectedCaptainId: playerId
+        }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.message || 'Failed to assign captain')
+      }
+
+      toast({
+        title: "Success",
+        description: "Captain has been assigned successfully.",
+      })
+
+      // Refresh team data
+      const updatedTeam = await getTeamWithMembers(teamId)
+      setTeam(updatedTeam)
+      
+      setCaptainVotingDialogOpen(false)
+    } catch (error) {
+      console.error('Error assigning captain:', error)
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to assign captain",
+        variant: "destructive"
+      })
+    } finally {
+      setIsAssigningCaptain(false)
     }
   }
   
@@ -540,7 +655,7 @@ export function TeamDetailsClient({ teamId }: { teamId: string }) {
           </CardContent>
         </Card>
         
-        {/* Captain Selection */}
+        {/* Team Captain Card */}
         <Card className="md:col-span-3">
           <CardHeader>
             <CardTitle>Team Captain</CardTitle>
@@ -583,30 +698,62 @@ export function TeamDetailsClient({ teamId }: { teamId: string }) {
                   </div>
                 </div>
                 
-                <div>
-                  <h3 className="font-medium mb-2">Change Captain</h3>
+                <div className="space-y-4">
+                  <h3 className="font-medium mb-2">Captain Voting & Assignment</h3>
+                  
+                  {session?.user?.role === 'admin' && (
+                    <div className="grid gap-4">
+                      <div className="flex flex-col gap-2">
+                        <Button 
+                          onClick={handleViewVotes}
+                          disabled={isLoadingVotes}
+                          className="w-full md:w-auto"
+                        >
+                          {isLoadingVotes ? (
+                            <div className="flex items-center">
+                              <div className="h-4 w-4 mr-2 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                              Loading Vote Data...
+                            </div>
+                          ) : (
+                            <>
+                              <Users className="h-4 w-4 mr-2" />
+                              View Voting Results & Assign Captain
+                            </>
+                          )}
+                        </Button>
+                        <p className="text-sm text-muted-foreground">
+                          View the results of team voting and assign a captain based on the votes
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  
+                  <h3 className="font-medium mb-2">Manual Captain Assignment</h3>
                   <div className="grid gap-2">
-                    <Select
-                      disabled={isUpdatingCaptain || team.members.length === 0}
-                      onValueChange={handleCaptainChange}
-                      value={team.captain?.id || ""}
-                    >
-                      <SelectTrigger className="w-full md:w-80">
-                        <SelectValue placeholder="Select a team member" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {team.members.map((member: any) => (
-                          <SelectItem 
-                            key={member.id} 
-                            value={member.id}
-                            disabled={team.captain?.id === member.id}
-                          >
-                            {member.name}
-                            {team.captain?.id === member.id && " (Current Captain)"}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <div className="flex gap-2">
+                      <Select
+                        disabled={isUpdatingCaptain || team.members.length === 0}
+                        onValueChange={handleCaptainChange}
+                        value={team.captain?.id || ""}
+                      >
+                        <SelectTrigger className="w-full md:w-80">
+                          <SelectValue placeholder="Select a team member" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {team.members.map((member: any) => (
+                            <SelectItem 
+                              key={member.id} 
+                              value={member.id}
+                              disabled={team.captain?.id === member.id}
+                            >
+                              {member.name}
+                              {team.captain?.id === member.id && " (Current Captain)"}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
                     <p className="text-sm text-muted-foreground">
                       The captain will have additional permissions for managing the team
                     </p>
@@ -678,12 +825,6 @@ export function TeamDetailsClient({ teamId }: { teamId: string }) {
                 <div>
                   <h3 className="font-medium mb-2">Team Activities</h3>
                   <div className="space-y-4">
-                    <Button asChild variant="outline" size="sm" className="w-full">
-                      <Link href="/team-captain-vote">
-                        <Crown className="h-4 w-4 mr-2" />
-                        Captain Voting
-                      </Link>
-                    </Button>
                     <Button asChild variant="outline" size="sm" className="w-full">
                       <Link href="/games">
                         View Games
@@ -906,6 +1047,71 @@ export function TeamDetailsClient({ teamId }: { teamId: string }) {
           </Card>
         )}
       </div>
+      
+      <Dialog open={captainVotingDialogOpen} onOpenChange={setCaptainVotingDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Captain Voting Results</DialogTitle>
+            <DialogDescription>
+              View voting results and assign a captain for {team?.name}
+            </DialogDescription>
+          </DialogHeader>
+          {isLoadingVotes ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            </div>
+          ) : votingData ? (
+            <div className="space-y-4">
+              <div className="rounded-md border">
+                <div className="grid grid-cols-3 p-4 font-medium border-b">
+                  <div>Player</div>
+                  <div>Votes Received</div>
+                  <div className="text-right">Action</div>
+                </div>
+                <div className="divide-y">
+                  {votingData.votes.map((vote: any) => (
+                    <div key={vote.playerId} className="grid grid-cols-3 p-4 items-center">
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-8 w-8">
+                          <AvatarImage
+                            src={vote.playerImage || `/placeholder.svg?height=32&width=32&text=${vote.playerName.substring(0, 2)}`}
+                            alt={vote.playerName}
+                          />
+                          <AvatarFallback>{vote.playerName.substring(0, 2)}</AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <p className="text-sm font-medium">{vote.playerName}</p>
+                        </div>
+                      </div>
+                      <div className="text-sm">
+                        {vote.voteCount} votes
+                      </div>
+                      <div className="flex justify-end">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleAssignCaptain(vote.playerId)}
+                          disabled={isAssigningCaptain}
+                        >
+                          {isAssigningCaptain ? "Assigning..." : "Assign as Captain"}
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="text-sm text-muted-foreground">
+                <p>Total votes cast: {votingData.totalVotes}</p>
+                <p>Voting progress: {votingData.votingPercentage}%</p>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-6 text-muted-foreground">
+              No voting data available
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 } 

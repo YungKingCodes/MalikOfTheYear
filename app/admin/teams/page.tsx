@@ -33,6 +33,7 @@ import Link from "next/link"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Switch } from "@/components/ui/switch"
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 
 export default function TeamsAdminPage() {
   const { toast } = useToast()
@@ -56,6 +57,10 @@ export default function TeamsAdminPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [resetVotingDialogOpen, setResetVotingDialogOpen] = useState(false)
   const [selectedTeam, setSelectedTeam] = useState<any>(null)
+  const [captainVotingDialogOpen, setCaptainVotingDialogOpen] = useState(false)
+  const [votingData, setVotingData] = useState<any>(null)
+  const [isLoadingVotes, setIsLoadingVotes] = useState(false)
+  const [isAssigningCaptain, setIsAssigningCaptain] = useState(false)
 
   useEffect(() => {
     async function loadData() {
@@ -369,6 +374,68 @@ export default function TeamsAdminPage() {
     }
   }
 
+  const handleViewVotes = async (team: any) => {
+    setSelectedTeam(team)
+    setIsLoadingVotes(true)
+    try {
+      const response = await fetch(`/api/captain-voting/votes/${team.id}`)
+      if (!response.ok) {
+        throw new Error('Failed to fetch voting data')
+      }
+      const data = await response.json()
+      setVotingData(data)
+      setCaptainVotingDialogOpen(true)
+    } catch (error) {
+      console.error('Error fetching voting data:', error)
+      toast({
+        title: "Error",
+        description: "Failed to load voting data",
+        variant: "destructive"
+      })
+    } finally {
+      setIsLoadingVotes(false)
+    }
+  }
+
+  const handleAssignCaptain = async (playerId: string) => {
+    if (!selectedTeam) return
+    
+    setIsAssigningCaptain(true)
+    try {
+      const response = await fetch('/api/captain-voting/conclude', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          teamId: selectedTeam.id,
+          selectedCaptainId: playerId
+        }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.message || 'Failed to assign captain')
+      }
+
+      toast({
+        title: "Success",
+        description: "Captain has been assigned successfully.",
+      })
+
+      // Refresh the teams list
+      await loadTeamsForCompetition(selectedCompetitionId, true)
+      setCaptainVotingDialogOpen(false)
+    } catch (error) {
+      console.error('Error assigning captain:', error)
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to assign captain",
+        variant: "destructive"
+      })
+    } finally {
+      setIsAssigningCaptain(false)
+    }
+  }
+
   if (loading && !competitions.length) {
     return (
       <div className="p-6 space-y-6">
@@ -475,6 +542,17 @@ export default function TeamsAdminPage() {
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-2">
+                    {team.isInCaptainVoting && (
+                      <Button 
+                        variant="ghost" 
+                        size="icon"
+                        onClick={() => handleViewVotes(team)}
+                        disabled={isLoadingVotes}
+                        title="View Captain Votes"
+                      >
+                        <Users className="h-4 w-4" />
+                      </Button>
+                    )}
                     <Button 
                       variant="ghost" 
                       size="icon"
@@ -723,6 +801,71 @@ export default function TeamsAdminPage() {
               {isResettingVoting === selectedTeam?.id ? "Resetting..." : "Reset Voting"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={captainVotingDialogOpen} onOpenChange={setCaptainVotingDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Captain Voting Results</DialogTitle>
+            <DialogDescription>
+              View voting results and assign a captain for {selectedTeam?.name}
+            </DialogDescription>
+          </DialogHeader>
+          {isLoadingVotes ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            </div>
+          ) : votingData ? (
+            <div className="space-y-4">
+              <div className="rounded-md border">
+                <div className="grid grid-cols-3 p-4 font-medium border-b">
+                  <div>Player</div>
+                  <div>Votes Received</div>
+                  <div className="text-right">Action</div>
+                </div>
+                <div className="divide-y">
+                  {votingData.votes.map((vote: any) => (
+                    <div key={vote.playerId} className="grid grid-cols-3 p-4 items-center">
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-8 w-8">
+                          <AvatarImage
+                            src={vote.playerImage || `/placeholder.svg?height=32&width=32&text=${vote.playerName.substring(0, 2)}`}
+                            alt={vote.playerName}
+                          />
+                          <AvatarFallback>{vote.playerName.substring(0, 2)}</AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <p className="text-sm font-medium">{vote.playerName}</p>
+                        </div>
+                      </div>
+                      <div className="text-sm">
+                        {vote.voteCount} votes
+                      </div>
+                      <div className="flex justify-end">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleAssignCaptain(vote.playerId)}
+                          disabled={isAssigningCaptain}
+                        >
+                          {isAssigningCaptain ? "Assigning..." : "Assign as Captain"}
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="text-sm text-muted-foreground">
+                <p>Total votes cast: {votingData.totalVotes}</p>
+                <p>Voting progress: {votingData.votingPercentage}%</p>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-6 text-muted-foreground">
+              No voting data available
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
